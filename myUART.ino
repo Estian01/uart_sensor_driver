@@ -1,5 +1,7 @@
  
 #include <ODriveUART.h>
+#include <Wire.h>
+#include <Ticker.h>
 //#include <SoftwareSerial.h>
 
 
@@ -9,6 +11,9 @@
 #define IMU_V5
 
 #define VDD_sensor_pin 19
+
+float u=0.0, u1=0,u2=0.0, u3=0.0, u4=0.0;
+float e=0.0, e1=0.0, e2=0.0, e3=0.0, roll1=0;
 
 // Documentation for this example can be found here:
 // https://docs.odriverobotics.com/v/latest/guides/arduino-uart-guide.html
@@ -57,7 +62,7 @@ ODriveUART odrive(odrive_serial);
 // Positive yaw : counterclockwise
 int SENSOR_SIGN[9] = {1,-1,-1,-1,1,1,1,-1,-1}; //Correct directions x,y,z - gyro, accelerometer, magnetometer
 
-#include <Wire.h>
+
 
 // accelerometer: 8 g sensitivity
 // 3.9 mg/digit; 1 g = 256
@@ -131,7 +136,7 @@ float Omega_I[3]= {0,0,0};//Omega Integrator
 float Omega[3]= {0,0,0};
 
 // Euler angles
-float roll;
+float roll=0;;
 float pitch;
 float yaw;
 
@@ -162,16 +167,87 @@ float Temporary_Matrix[3][3]={
 };
 
 
+Ticker timeri;
+const unsigned long interval = 20;  // Intervalo de muestreo en milisegundos <------ min T= 4
+const unsigned long intervaltimer = interval; 
 
+unsigned long previousMillis = 0;
+float currentMillis=0;
+
+float t=0;
+float tref=0;
+float tseconds=0;
+float trefsegundos=0;
+
+
+
+void timerCallback(){
+  t=t+intervaltimer;
+  tseconds=t/1000.0;
+
+  //tiempo para la referencia 
+  tref=tref+intervaltimer;
+  trefsegundos=tref/1000.0;
+
+    
+  currentMillis=t;
+
+  ODriveFeedback feedback = odrive.getFeedback();
+
+
+  e=0.0-roll;
+
+
+
+  
+  //u=  1980947204933732608.0*e1 - 5945122943553126400.0*e2 + 5945085167421375488.0*e3 - 1980909472964295680.0*e + 3.0845805141489108792*u1 - 17993024112573.84375*u2 + 114249980.71484375*u3 + 17992909862591.042969*u4;
+  //u=19770076417658.339844*e1 - 19769950795863.484375*e2 + 6587371199687.8388672*e3 - 6587496674624.1123047*ex + 3.8801557573187892558*u1 + 59834494.844342850149*u2 - 376.27573272585868835*u3 - 59834121.44876588136*u4
+  //u= 122574473786455.1875*e1 - 122573694931330.39062*e2 + 40841701437058.320312*e3 - 40842479381659.914062*e + 3.9391765155723987846*u1 + 370973897.22023648024*u2 - 2351.7434336543083191*u3 - 370971548.41597932577*u4; //10s
+  //u=532.78227731249057797*e1 - 532.71847137722318166*e2 + 176.45038267686780387*e3 - 176.51393710318467356*e + 3.7465061096736462787*u1 - 3.8136504525674346233*u2 + 3.3252825136310186771*u3 - 2.2581381707372303325*u4;
+  //u=16.83563840393079758*e2 - 16.814363885180771518*e1 - 5.5838262804970888453*e3 + 5.5625437276747273785*e + 3.9573704705608179211*u1 - 5.9382865386571532795*u2 + 3.9107116676277757783*u3 - 0.92979559953143997575*u4;
+  //u=391658555450.66162109*e1 - 391625498822.68902588*e2 + 123495525168.18115234*e3 - 123523755944.00775146*e + 2.751173219597149*u1 + 9386123729.2959747314*u2 - 723091.94561767578125*u3 - 9385400639.1015300751*u4;
+
+
+  //PI
+  u=-(45*e-90*(e-e1));
+
+  //lyapunov
+  //u=((26*0.8*9.81*sin(roll)-5*(roll-roll1)/0.2-100*abs((e-e1)/0.2+e)))/16.64;
+
+
+  if(u>0.8){u=0.8;}if(u<-0.8){u=-0.8;}//limite para que no se desborde u
+  odrive.setTorque(u);
+  //odrive.setTorque(roll*1.6/0.5235987756);
+  
+  //Serial.print("pos:");
+  //Serial.print(feedback.pos);
+  //Serial.print(", ");
+  //Serial.print("vel:");
+  Serial.print(u);
+  Serial.print(", ");
+  Serial.print(feedback.vel);
+  Serial.print(", ");
+  printdata();
+
+
+  u4=u3;
+  u3=u2;
+  u2=u1;
+  u1=u;
+
+  e3=e2;
+  e2=e1;
+  e1=e;
+  roll1=roll;
+}
 
 void setup() {
-  odrive_serial.begin(baudrate,SERIAL_8N1,16,17);
-
+  
   Serial.begin(115200); // Serial to PC
   
   delay(10);
 
-  Serial.println("The device started, now you can pair it with bluetooth!");
+  //Serial.println("The device started, now you can pair it with bluetooth!");
 
   pinMode (STATUS_LED,OUTPUT);  // Status LED
   pinMode (VDD_sensor_pin,OUTPUT);
@@ -216,6 +292,8 @@ void setup() {
   counter=0;
 
 
+  odrive_serial.begin(baudrate,SERIAL_8N1,16,17);
+
   Serial.println("Waiting for ODrive...");
   while (odrive.getState() == AXIS_STATE_UNDEFINED) {
     delay(100);
@@ -234,6 +312,9 @@ void setup() {
   }
   
   Serial.println("ODrive running!");
+
+  //timer
+   timeri.attach_ms(intervaltimer, timerCallback);
 }
 
 void loop() {
@@ -283,22 +364,8 @@ void loop() {
     //Serial.print(",");*/
     digitalWrite(STATUS_LED,LOW);
   }
-
-  float SINE_PERIOD = 2.0f; // Period of the position command sine wave in seconds
-
-  float t = 0.001 * millis();
   
-  float phase = t * (TWO_PI / SINE_PERIOD);
-  
-
-  odrive.setTorque(roll*1.6/0.5235987756);
-
-  ODriveFeedback feedback = odrive.getFeedback();
-  //Serial.print("pos:");
-  //Serial.print(feedback.pos);
-  //Serial.print(", ");
-  //Serial.print("vel:");
-  Serial.print(feedback.vel);
-  Serial.print(", ");
-  printdata();
 }
+
+
+
