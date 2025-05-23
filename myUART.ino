@@ -1,5 +1,6 @@
  
 #include <ODriveUART.h>
+
 #include <Wire.h>
 #include <Ticker.h>
 //#include <SoftwareSerial.h>
@@ -226,6 +227,8 @@ void timerCallback(){
   Serial.print(u);
   Serial.print(", ");
   Serial.print(feedback.vel);
+  Serial.print(", ");
+  Serial.print(odrive.getParameterAsString("axis0.controller.effective_torque_setpoint"));
   Serial.print(", ");
   printdata();
 
