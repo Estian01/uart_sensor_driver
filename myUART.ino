@@ -106,7 +106,7 @@ int SENSOR_SIGN[9] = {1,-1,-1,-1,1,1,1,-1,-1}; //Correct directions x,y,z - gyro
 #define PRINT_EULER 1   //Will print the Euler angles Roll, Pitch and Yaw
 
 #define STATUS_LED 13
-
+#define onofftime 0.4
 float G_Dt=0.02;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
 long timer=0;   //general purpuse timer
@@ -207,16 +207,37 @@ void timerCallback(){
   //u=532.78227731249057797*e1 - 532.71847137722318166*e2 + 176.45038267686780387*e3 - 176.51393710318467356*e + 3.7465061096736462787*u1 - 3.8136504525674346233*u2 + 3.3252825136310186771*u3 - 2.2581381707372303325*u4;
   //u=16.83563840393079758*e2 - 16.814363885180771518*e1 - 5.5838262804970888453*e3 + 5.5625437276747273785*e + 3.9573704705608179211*u1 - 5.9382865386571532795*u2 + 3.9107116676277757783*u3 - 0.92979559953143997575*u4;
   //u=391658555450.66162109*e1 - 391625498822.68902588*e2 + 123495525168.18115234*e3 - 123523755944.00775146*e + 2.751173219597149*u1 + 9386123729.2959747314*u2 - 723091.94561767578125*u3 - 9385400639.1015300751*u4;
-
-
-  //PI
-  u=-(45*e-90*(e-e1));
+  //u=-(10521.542487423201237*e2 - 10521.635581466498479*e1 - 3495.7164383019717206*e3 + 3495.8069072069774847*e + 3.604633562372328015*u1 - 13.8630165008556272*u2 + 2.9537982016209145542*u3 + 8.3045847368623846307*u4);
+  
+  //P
+  //u=-10*e;//25
+  //u=-(45*e-20*(e-e1));
 
   //lyapunov
   //u=((26*0.8*9.81*sin(roll)-5*(roll-roll1)/0.2-100*abs((e-e1)/0.2+e)))/16.64;
+  
+  
+  /*if(roll>0){u=0.9;}
+  else if(roll<0){u=-0.9;}
+  else if(roll==0){u=0;}*/
+ if(trefsegundos>=0 && trefsegundos<onofftime){
+    u=0.9; 
+    }
+    if(trefsegundos>=onofftime && trefsegundos<2*onofftime){
+    u=0; 
+    }
+    if(trefsegundos>=2*onofftime && trefsegundos<3*onofftime){
+    u=-0.9;
+    }
+    if(trefsegundos>=3*onofftime && trefsegundos<4*onofftime){
+    u=0; 
+    }
+    if(trefsegundos>=4*onofftime){
+    tref=0;
+    }
 
 
-  if(u>0.8){u=0.8;}if(u<-0.8){u=-0.8;}//limite para que no se desborde u
+  if(u>0.9){u=0.9;}if(u<-0.9){u=-0.9;}//limite para que no se desborde u
   odrive.setTorque(u);
   //odrive.setTorque(roll*1.6/0.5235987756);
   
@@ -228,11 +249,14 @@ void timerCallback(){
   Serial.print(", ");
   Serial.print(feedback.vel);
   Serial.print(", ");
-  Serial.print(odrive.getParameterAsString("axis0.controller.effective_torque_setpoint"));
+  //u=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
+  Serial.print(odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint"));
+  Serial.print(", ");
+  Serial.print(odrive.getParameterAsString("axis0.motor.torque_estimate"));
   Serial.print(", ");
   printdata();
 
-
+  
   u4=u3;
   u3=u2;
   u2=u1;
