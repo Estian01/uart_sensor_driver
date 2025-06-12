@@ -33,7 +33,7 @@ float e=0.0, e1=0.0, e2=0.0, e3=0.0, roll1=0;
 // Note that this is implemented poorly and can lead to wrong data sent or read.
 // pin 8: RX - connect to ODrive TX
 // pin 9: TX - connect to ODrive RX
-//SoftwareSerial odrive_serial(8, 9);
+//SoftwareSerial odrive_serial(8, 9);onof
 //unsigned long baudrate = 19200; // Must match what you configure on the ODrive (see docs for details)
 
 // Teensy 3 and 4 (all versions) - Serial1
@@ -63,7 +63,7 @@ ODriveUART odrive(odrive_serial);
 // Positive yaw : counterclockwise
 int SENSOR_SIGN[9] = {1,-1,-1,-1,1,1,1,-1,-1}; //Correct directions x,y,z - gyro, accelerometer, magnetometer
 
-
+bool is_this_ready= false;
 
 // accelerometer: 8 g sensitivity
 // 3.9 mg/digit; 1 g = 256
@@ -180,6 +180,12 @@ float tref=0;
 float tseconds=0;
 float trefsegundos=0;
 
+int sat_counter=0;
+int unsat_counter=0;
+int signu=0;
+
+#define vel_limit 10
+
 
 
 void timerCallback(){
@@ -194,6 +200,52 @@ void timerCallback(){
   currentMillis=t;
 
   ODriveFeedback feedback = odrive.getFeedback();
+
+if((millis()-timer)>=20)  // Main loop runs at 50Hz
+  {
+    digitalWrite(STATUS_LED,HIGH);
+    counter++;
+    timer_old = timer;
+    timer=millis();
+    if (timer>timer_old)
+    {
+      G_Dt = (timer-timer_old)/1000.0;    // Real time of loop run. We use this on the DCM algorithm (gyro integration time)
+      if (G_Dt > 0.2)
+        G_Dt = 0; // ignore integration times over 200 ms
+    }
+    else
+      G_Dt = 0;
+
+
+
+    // * DCM algorithm
+    // Data adquisition
+    Read_Gyro();   // This read gyro data
+    Read_Accel();     // Read I2C accelerometer
+
+    if (counter > 5)  // Read compass data at 10Hz... (5 loop runs)
+    {
+      counter=0;
+      Read_Compass();    // Read I2C magnetometer
+      Compass_Heading(); // Calculate magnetic heading
+    }
+
+    // Calculations...
+    Matrix_update();
+    Normalize();
+    Drift_correction();
+    Euler_angles();
+    // *
+
+    /*SerialBT.println(" ");
+    SerialBT.print(ToDeg(roll));
+    SerialBT.print(",");
+    SerialBT.print(ToDeg(pitch));
+    SerialBT.print(",");
+    SerialBT.print(ToDeg(yaw));
+    //Serial.print(",");*/
+    digitalWrite(STATUS_LED,LOW);
+  }
 
 
   e=0.0-roll;
@@ -210,7 +262,20 @@ void timerCallback(){
   //u=-(10521.542487423201237*e2 - 10521.635581466498479*e1 - 3495.7164383019717206*e3 + 3495.8069072069774847*e + 3.604633562372328015*u1 - 13.8630165008556272*u2 + 2.9537982016209145542*u3 + 8.3045847368623846307*u4);
   
   //P
-  //u=-10*e;//25
+  u=-10*e;//25
+
+  if (feedback.vel>=7.6||feedback.vel<=-7.6){
+    sat_counter++;
+  }else{
+    sat_counter=0;
+  }
+  if (sat_counter>=5){
+    unsat_counter=10;
+  }
+
+  
+
+
   //u=-(45*e-20*(e-e1));
 
   //lyapunov
@@ -220,14 +285,15 @@ void timerCallback(){
   /*if(roll>0){u=0.9;}
   else if(roll<0){u=-0.9;}
   else if(roll==0){u=0;}*/
+  /*
  if(trefsegundos>=0 && trefsegundos<onofftime){
-    u=0.9; 
+    u=0.8; 
     }
     if(trefsegundos>=onofftime && trefsegundos<2*onofftime){
     u=0; 
     }
     if(trefsegundos>=2*onofftime && trefsegundos<3*onofftime){
-    u=-0.9;
+    u=-0.8;
     }
     if(trefsegundos>=3*onofftime && trefsegundos<4*onofftime){
     u=0; 
@@ -236,8 +302,17 @@ void timerCallback(){
     tref=0;
     }
 
+  */
 
-  if(u>0.9){u=0.9;}if(u<-0.9){u=-0.9;}//limite para que no se desborde u
+  if (unsat_counter>0){
+    if(u>0){signu=1;}
+    else if (u<0){signu=-1;}
+    else if (u==0){signu=0;}
+    u=-signu*1;
+    unsat_counter--;
+  }
+
+  if(u>1.2){u=1.2;}if(u<-1.2){u=-1.2;}//limite para que no se desborde u
   odrive.setTorque(u);
   //odrive.setTorque(roll*1.6/0.5235987756);
   
@@ -245,16 +320,21 @@ void timerCallback(){
   //Serial.print(feedback.pos);
   //Serial.print(", ");
   //Serial.print("vel:");
+  printdata();
   Serial.print(u);
   Serial.print(", ");
-  Serial.print(feedback.vel);
-  Serial.print(", ");
+  
+
+  if (odrive.getState() == AXIS_STATE_CLOSED_LOOP_CONTROL) {
+    Serial.print(feedback.vel);
+    Serial.print(", ");
+    Serial.print(odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint"));
+    Serial.print(", ");
+    Serial.print(odrive.getParameterAsString("axis0.motor.torque_estimate"));
+    Serial.print(", ");
+  }
   //u=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
-  Serial.print(odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint"));
-  Serial.print(", ");
-  Serial.print(odrive.getParameterAsString("axis0.motor.torque_estimate"));
-  Serial.print(", ");
-  printdata();
+  Serial.println();
 
   
   u4=u3;
@@ -322,74 +402,31 @@ void setup() {
   odrive_serial.begin(baudrate,SERIAL_8N1,16,17);
 
   Serial.println("Waiting for ODrive...");
-  while (odrive.getState() == AXIS_STATE_UNDEFINED) {
-    delay(100);
-  }
-
-  Serial.println("found ODrive");
   
-  Serial.print("DC voltage: ");
-  Serial.println(odrive.getParameterAsFloat("vbus_voltage"));
-  
-  Serial.println("Enabling closed loop control...");
-  while (odrive.getState() != AXIS_STATE_CLOSED_LOOP_CONTROL) {
-    odrive.clearErrors();
-    odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
-    delay(10);
-  }
-  
-  Serial.println("ODrive running!");
-
   //timer
    timeri.attach_ms(intervaltimer, timerCallback);
 }
 
 void loop() {
-
-  if((millis()-timer)>=20)  // Main loop runs at 50Hz
-  {
-    digitalWrite(STATUS_LED,HIGH);
-    counter++;
-    timer_old = timer;
-    timer=millis();
-    if (timer>timer_old)
-    {
-      G_Dt = (timer-timer_old)/1000.0;    // Real time of loop run. We use this on the DCM algorithm (gyro integration time)
-      if (G_Dt > 0.2)
-        G_Dt = 0; // ignore integration times over 200 ms
-    }
-    else
-      G_Dt = 0;
-
-
-
-    // * DCM algorithm
-    // Data adquisition
-    Read_Gyro();   // This read gyro data
-    Read_Accel();     // Read I2C accelerometer
-
-    if (counter > 5)  // Read compass data at 10Hz... (5 loop runs)
-    {
-      counter=0;
-      Read_Compass();    // Read I2C magnetometer
-      Compass_Heading(); // Calculate magnetic heading
+  if (is_this_ready==false){
+      while (odrive.getState() == AXIS_STATE_UNDEFINED) {
+      delay(100);
     }
 
-    // Calculations...
-    Matrix_update();
-    Normalize();
-    Drift_correction();
-    Euler_angles();
-    // *
+    Serial.println("found ODrive");
+    
+    Serial.print("DC voltage: ");
+    Serial.println(odrive.getParameterAsFloat("vbus_voltage"));
+    
+    Serial.println("Enabling closed loop control...");
+    while (odrive.getState() != AXIS_STATE_CLOSED_LOOP_CONTROL) {
+      odrive.clearErrors();
+      odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+      delay(10);
+    }
+    
+    Serial.println("ODrive running!");
 
-    /*SerialBT.println(" ");
-    SerialBT.print(ToDeg(roll));
-    SerialBT.print(",");
-    SerialBT.print(ToDeg(pitch));
-    SerialBT.print(",");
-    SerialBT.print(ToDeg(yaw));
-    //Serial.print(",");*/
-    digitalWrite(STATUS_LED,LOW);
   }
   
 }

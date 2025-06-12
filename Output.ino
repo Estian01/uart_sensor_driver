@@ -49,7 +49,8 @@ void printdata(void)
       Serial.print(Accel_Vector[1]);
       Serial.print(",");
       Serial.print(Accel_Vector[2]);
-
+      Serial.print(",");
+      
       #endif      
       #if PRINT_ANALOGS==1
       Serial.print(",AN:");
@@ -91,7 +92,7 @@ void printdata(void)
       Serial.print (",");
       Serial.print(DCM_Matrix[2][2]);
       #endif
-      Serial.println();
+      //Serial.println();
       
 }
 
