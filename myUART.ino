@@ -169,12 +169,15 @@ int sat_counter=0;
 int unsat_counter=0;
 int signu=0;
 
-#define ROLL_OFFSET ToRad(-2.78)//-2.65  //Initial roll offset in deg/radians
+#define ROLL_OFFSET ToRad(-3)//-2.78  //Initial roll offset in deg/radians
 
 bool pasoxcero= false; //Se activa cuando la bici pasa por cero para activar el control
 
 //double K[] ={-0.014864251025630468433513797776868, -552.85212069801775669475318863988, -91.767190713265293311451387125999};
-const double K[] ={-0.21672060886125454892692232533591, -1565.9732934287246735038934275508, -328.84253877357650708290748298168};
+//const double K[] ={-0.21672060886125454892692232533591, -1565.9732934287246735038934275508, -328.84253877357650708290748298168};
+const double K[]={-0.130946, -1096.81, -238.306};
+
+double uref=0;
 
  
 int sign(float u){
@@ -237,14 +240,15 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
  // u=43.503246932384755041*e1 - 21.95437663765436298*e - 21.512803502947924983*e2 + 1.8535052807369114536*u1 - 0.83265300708364831106*u2;
   
 
-u=-(K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*roll+K[2]*(roll-roll1)/interval);
- 
-  
+u=-(-K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*ToRad(roll)+K[2]*(ToRad(roll-roll1))/interval);   //ToRad roll
+//u=-(-K[0]*feedback.vel*2*3.14159265358979323846264);// +K[1]*roll+K[2]*(roll-roll1)/interval);
+//u=uref+u;  
   if(!pasoxcero){//u definition MUST BE BEFORE this conditional
     //if(sign(roll)!=sign(roll1))
     if(roll>ToRad(0.05))
       {pasoxcero=true;}
     u=0;
+    //u=0.1;
   }
  
   //u=0.06875;//0.0765625;
@@ -265,21 +269,21 @@ u=-(K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*roll+K[2]*(roll-roll1)/i
   else if(roll==0){u=0;}*/
   /*
  if(trefsegundos>=0 && trefsegundos<onofftime){
-    u=0; 
+    uref=0; 
     }
     if(trefsegundos>=onofftime && trefsegundos<2*onofftime){
-    u=0.9; 
+    uref=0.9; 
     }
     if(trefsegundos>=2*onofftime && trefsegundos<3*onofftime){
-    u=0;
+    uref=0;
     }
     if(trefsegundos>=3*onofftime && trefsegundos<4*onofftime){
-    u=-0.9; 
+    uref=-0.9; 
     }
     if(trefsegundos>=4*onofftime){
     tref=0;
     }
-*/
+    */
   
 /*
   if (unsat_counter>0){
@@ -292,7 +296,7 @@ u=-(K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*roll+K[2]*(roll-roll1)/i
   */
 
   if(u>1.2){u=1.2;}if(u<-1.2){u=-1.2;}//limite para que no se desborde u
-  odrive.setTorque(u);//-u
+  odrive.setTorque(u);//u//u+uref
   //odrive.setTorque(roll*1.6/0.5235987756);
   
   //Serial.print(sign(pasoxcero));
@@ -311,6 +315,10 @@ u=-(K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*roll+K[2]*(roll-roll1)/i
     Serial.print(", ");
     Serial.print(odrive.getParameterAsString("axis0.motor.torque_estimate"));
     Serial.print(", ");
+  }else {
+    Serial.print(0); Serial.print(", ");
+    Serial.print(0); Serial.print(", ");
+    Serial.print(0); Serial.print(", ");
   }
   //u=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
   Serial.println();
