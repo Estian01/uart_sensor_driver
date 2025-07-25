@@ -34,22 +34,22 @@ void printdata(void)
       #if PRINT_EULER == 1
       Serial.print(ToDeg(roll));
       Serial.print(",");
-      Serial.print(ToDeg(pitch));
-      Serial.print(",");
+      //Serial.print(ToDeg(pitch));
+      //Serial.print(",");
       //Serial.print(ToDeg(yaw));
       //Serial.print(",");
       Serial.print(ToDeg(Gyro_Vector[0]));
       Serial.print(",");
-      Serial.print(ToDeg(Gyro_Vector[1]));
-      Serial.print(",");
-      Serial.print(ToDeg(Gyro_Vector[2]));
-      Serial.print(",");
+      //Serial.print(ToDeg(Gyro_Vector[1]));
+      //Serial.print(",");
+      //Serial.print(ToDeg(Gyro_Vector[2]));
+      //Serial.print(",");
       Serial.print(Accel_Vector[0]);
       Serial.print(",");
-      Serial.print(Accel_Vector[1]);
-      Serial.print(",");
-      Serial.print(Accel_Vector[2]);
-      Serial.print(",");
+      //Serial.print(Accel_Vector[1]);
+      //Serial.print(",");
+      // Serial.print(Accel_Vector[2]);
+      // Serial.print(",");
       
       #endif      
       #if PRINT_ANALOGS==1

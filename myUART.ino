@@ -11,7 +11,6 @@
 
 float u=0.0, u1=0,u2=0.0, u3=0.0, u4=0.0;
 float e=0.0, e1=0.0, e2=0.0, e3=0.0, e4=0.0, roll1=0.0;
-
 // Documentation for this example can be found here: https://docs.odriverobotics.com/v/latest/guides/arduino-uart-guide.html
 
 // Set up serial pins to the ODrive
@@ -92,7 +91,7 @@ bool is_this_ready= false;
 #define PRINT_EULER 1   //Will print the Euler angles Roll, Pitch and Yaw
 
 #define STATUS_LED 13
-#define onofftime 0.5//0.4
+#define onofftime 0.02//0.4
 float G_Dt=0.01;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
 long timer=0;   //general purpuse timer
@@ -123,15 +122,16 @@ float Omega_I[3]= {0,0,0};//Omega Integrator
 float Omega[3]= {0,0,0};
 
 // Euler angles
-float roll=0;;
-float pitch;
-float yaw;
+float roll=0;
+float pitch=0;
+float yaw=0;
 
 float errorRollPitch[3]= {0,0,0};
 float errorYaw[3]= {0,0,0};
 
+
 unsigned int counter=0;
-byte gyro_sat=0;
+//byte gyro_sat=0;
 
 float DCM_Matrix[3][3]= {
   {
@@ -152,6 +152,12 @@ float Temporary_Matrix[3][3]={
   ,{
     0,0,0  }
 };
+
+void resetVector(float v[3]) {
+    for (int i = 0; i < 3; ++i)
+        v[i] = 0.0f;
+}
+
 //
 Ticker timeri;
 const unsigned long interval = 10;  // Intervalo de muestreo en milisegundos <------ min T= 4
@@ -169,14 +175,12 @@ int sat_counter=0;
 int unsat_counter=0;
 int signu=0;
 
-#define ROLL_OFFSET ToRad(-3)//-2.78  //Initial roll offset in deg/radians
+//#define ROLL_OFFSET ToRad(-3)//-2.78  //Initial roll offset in deg/radians
+
 
 bool pasoxcero= false; //Se activa cuando la bici pasa por cero para activar el control
 
-//double K[] ={-0.014864251025630468433513797776868, -552.85212069801775669475318863988, -91.767190713265293311451387125999};
-//const double K[] ={-0.21672060886125454892692232533591, -1565.9732934287246735038934275508, -328.84253877357650708290748298168};
-const double K[]={-0.130946, -1096.81, -238.306};
-
+double K[]={-0.001862943, -155.4314, -33.66148};
 double uref=0;
 
  
@@ -185,6 +189,15 @@ int sign(float u){
   else if(u<0){return -1;}
   else if(u==0){return 0;}
 }
+
+  void resetMatrix(float m[3][3]) {
+      for (int i = 0; i < 3; ++i)
+          for (int j = 0; j < 3; ++j)
+              m[i][j] = 0.0;
+  }
+
+
+float roll_offset = ToRad(-3.4); //2.78 valor inicial en radianes
 
 void timerCallback(){
   t=t+intervaltimer;
@@ -230,27 +243,17 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
     Normalize();
     Drift_correction();
     Euler_angles();
-     
+    
     digitalWrite(STATUS_LED,LOW);
   }
 
   e=0.0-roll;
 
-  //u=-(-25*e-10*(e-e1)/interval);//10   P
- // u=43.503246932384755041*e1 - 21.95437663765436298*e - 21.512803502947924983*e2 + 1.8535052807369114536*u1 - 0.83265300708364831106*u2;
-  
+  //u=43.503246932384755041*e1 - 21.95437663765436298*e - 21.512803502947924983*e2 + 1.8535052807369114536*u1 - 0.83265300708364831106*u2;
 
-u=-(-K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*ToRad(roll)+K[2]*(ToRad(roll-roll1))/interval);   //ToRad roll
-//u=-(-K[0]*feedback.vel*2*3.14159265358979323846264);// +K[1]*roll+K[2]*(roll-roll1)/interval);
-//u=uref+u;  
-  if(!pasoxcero){//u definition MUST BE BEFORE this conditional
-    //if(sign(roll)!=sign(roll1))
-    if(roll>ToRad(0.05))
-      {pasoxcero=true;}
-    u=0;
-    //u=0.1;
-  }
- 
+  //u=-(-K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*roll+K[2]*(Gyro_Vector[0]));   
+   u=211.45722526770180139*e1 - 107.16805330958501941*e - 104.28926993053794092*e2 + 1.9703962490402568974*u1 - 0.97039319502697318764*u2;
+  
   //u=0.06875;//0.0765625;
   if (feedback.vel>=7.6||feedback.vel<=-7.6){
     sat_counter++;
@@ -262,28 +265,7 @@ u=-(-K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*ToRad(roll)+K[2]*(ToRad
   }
   //lyapunov
   //u=((26.6*0.365*9.81*sin(roll)-5*(roll-roll1)/0.2-100*abs((e-e1)/0.2+e)))/16.64;
-  
-  
-  /*if(roll>0){u=0.9;}
-  else if(roll<0){u=-0.9;}
-  else if(roll==0){u=0;}*/
-  /*
- if(trefsegundos>=0 && trefsegundos<onofftime){
-    uref=0; 
-    }
-    if(trefsegundos>=onofftime && trefsegundos<2*onofftime){
-    uref=0.9; 
-    }
-    if(trefsegundos>=2*onofftime && trefsegundos<3*onofftime){
-    uref=0;
-    }
-    if(trefsegundos>=3*onofftime && trefsegundos<4*onofftime){
-    uref=-0.9; 
-    }
-    if(trefsegundos>=4*onofftime){
-    tref=0;
-    }
-    */
+
   
 /*
   if (unsat_counter>0){
@@ -295,6 +277,43 @@ u=-(-K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*ToRad(roll)+K[2]*(ToRad
   }
   */
 
+
+ /* 
+ if(trefsegundos>=0 && trefsegundos<onofftime){
+    uref=1.2; 
+    }
+    if(trefsegundos>=onofftime && trefsegundos<2*onofftime){
+    uref=0; 
+    }
+    if(trefsegundos>=2*onofftime && trefsegundos<3*onofftime){
+    uref=-1.2;
+    }
+    if(trefsegundos>=3*onofftime && trefsegundos<4*onofftime){
+    uref=-0; 
+    }
+    if(trefsegundos>=4*onofftime){
+    tref=0;
+    }
+    
+  u=uref;
+  */
+
+  //onoff control
+  /*
+  if(roll>ToRad(0.06)){u=1;}
+  else if(roll<ToRad(-0.06)){u=-1;}
+  else{u=0;}*/
+  
+
+  if(!pasoxcero){//u definition MUST BE BEFORE this conditional
+    //if(sign(roll)!=sign(roll1))
+    if(roll>ToRad(0.02))
+      {pasoxcero=true;}
+    u=0;
+    tref=0;
+    //u=0.1;
+  }
+
   if(u>1.2){u=1.2;}if(u<-1.2){u=-1.2;}//limite para que no se desborde u
   odrive.setTorque(u);//u//u+uref
   //odrive.setTorque(roll*1.6/0.5235987756);
@@ -304,6 +323,7 @@ u=-(-K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*ToRad(roll)+K[2]*(ToRad
   printdata();
   Serial.print(u);
   Serial.print(", ");
+  
   
 
   if (odrive.getState() == AXIS_STATE_CLOSED_LOOP_CONTROL) {
@@ -320,8 +340,9 @@ u=-(-K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*ToRad(roll)+K[2]*(ToRad
     Serial.print(0); Serial.print(", ");
     Serial.print(0); Serial.print(", ");
   }
-  //u=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
   Serial.println();
+  //u=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
+  //Serial.println();
   
   if(pasoxcero){
     u4=u3;
@@ -336,10 +357,7 @@ u=-(-K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*ToRad(roll)+K[2]*(ToRad
   roll1=roll;
 }
 
-void setup() {
-  
-  Serial.begin(115200); // Serial to PC
-  
+void resetVars(){
   delay(10);
 
   //Serial.println("The device started, now you can pair it with bluetooth!");
@@ -347,10 +365,6 @@ void setup() {
   pinMode (STATUS_LED,OUTPUT);  // Status LED
   pinMode (VDD_sensor_pin,OUTPUT);
   digitalWrite(VDD_sensor_pin,HIGH);
-
-  I2C_Init();
-
-  Serial.println("Pololu MinIMU-9 + Arduino AHRS");
 
   digitalWrite(STATUS_LED,LOW);
   delay(1500);
@@ -373,8 +387,8 @@ void setup() {
   for(int y=0; y<6; y++)
     AN_OFFSET[y] = AN_OFFSET[y]/32;
 
-  AN_OFFSET[5]-=GRAVITY*SENSOR_SIGN[5]*cos(ROLL_OFFSET);
-  AN_OFFSET[4]-=GRAVITY*SENSOR_SIGN[5]*sin(ROLL_OFFSET);
+  AN_OFFSET[5]-=GRAVITY*SENSOR_SIGN[5]*cos(roll_offset);
+  AN_OFFSET[4]-=GRAVITY*SENSOR_SIGN[5]*sin(roll_offset);
 
   //Serial.println("Offset:");
   for(int y=0; y<6; y++)
@@ -393,18 +407,121 @@ void setup() {
   
   //timer
    timeri.attach_ms(intervaltimer, timerCallback);
+
 }
 
+void resetSensor(){
+  is_this_ready=false;
+      pasoxcero=false;
+      u=0;
+      timeri.detach();
+      odrive.setState(AXIS_STATE_IDLE);
+      delay(500);
+      //resetMatrix(DCM_Matrix);
+      resetMatrix(Temporary_Matrix);
+      resetVector(Accel_Vector);
+      resetVector(Gyro_Vector); 
+      resetVector(Omega_Vector);
+      resetVector(Omega_P);
+      resetVector(Omega_I);
+      resetVector(Omega);
+      resetVector(errorRollPitch);
+      resetVector(errorYaw);
+      roll=0; pitch=0; yaw=0;
+      resetVars();
+}
+
+void setup() {
+  
+  Serial.begin(115200); // Serial to PC
+  I2C_Init();
+  Serial.println("Pololu MinIMU-9 + Arduino AHRS");
+
+  resetVars();
+}
+
+// void loop() {
+//   if (is_this_ready==false){
+//       while (odrive.getState() == AXIS_STATE_UNDEFINED) {
+//       delay(100);
+//       //Serial.println("found ODrive");
+//     //Serial.print("DC voltage: ");
+//     //Serial.println(odrive.getParameterAsFloat("vbus_voltage"));
+
+//     is_this_ready=true;
+
+//     }
+
+//     while (odrive.getState() != AXIS_STATE_CLOSED_LOOP_CONTROL) {
+//       odrive.clearErrors();
+//       odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+//       delay(10);
+//     }
+
+//   }
+
+//     if (Serial.available()) {
+//     String input = Serial.readStringUntil('\n');
+//     input.trim();
+
+//     if (input.startsWith("OFFSET=")) {
+//       float newOffsetDeg = input.substring(7).toFloat();
+//       roll_offset = ToRad(newOffsetDeg);
+
+//     }
+
+//     if (input.startsWith("K=")) {
+//       // Formato: K=-0.01,-123,-45.6
+//       input = input.substring(2); // quitar "K="
+//       int idx1 = input.indexOf(',');
+//       int idx2 = input.indexOf(',', idx1 + 1);
+
+//       if (idx1 != -1 && idx2 != -1) {
+//         K[0] = input.substring(0, idx1).toFloat();
+//         K[1] = input.substring(idx1 + 1, idx2).toFloat();
+//         K[2] = input.substring(idx2 + 1).toFloat();
+
+//       }
+//     }
+//   }
+// }
+
 void loop() {
-  if (is_this_ready==false){
-      while (odrive.getState() == AXIS_STATE_UNDEFINED) {
+
+  //  A PARTIR DE AQUÍ: SIEMPRE ESCUCHA EL SERIAL
+  if (Serial.available()) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+
+    if (input.startsWith("OFFSET=")) {
+      float newOffsetDeg = input.substring(7).toFloat();
+      roll_offset = ToRad(newOffsetDeg);
+
+      resetSensor();
+    }
+
+    if (input.startsWith("K=")) {
+      input = input.substring(2);
+      int idx1 = input.indexOf(',');
+      int idx2 = input.indexOf(',', idx1 + 1);
+
+      if (idx1 != -1 && idx2 != -1) {
+        K[0] = input.substring(0, idx1).toFloat();
+        K[1] = input.substring(idx1 + 1, idx2).toFloat();
+        K[2] = input.substring(idx2 + 1).toFloat();
+
+        resetSensor();
+
+      } else {
+        Serial.println("Error en el formato de K. Usa: K=x,y,z");
+      }
+    }
+  }
+
+  if (!is_this_ready) {
+    while (odrive.getState() == AXIS_STATE_UNDEFINED) {
       delay(100);
-      //Serial.println("found ODrive");
-    //Serial.print("DC voltage: ");
-    //Serial.println(odrive.getParameterAsFloat("vbus_voltage"));
-
-    is_this_ready=true;
-
+      is_this_ready = true;
     }
 
     while (odrive.getState() != AXIS_STATE_CLOSED_LOOP_CONTROL) {
@@ -412,8 +529,6 @@ void loop() {
       odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
       delay(10);
     }
-    
-    //Serial.println("Enabling closed loop control...");    
-    //Serial.println("ODrive running!");
   }
 }
+
