@@ -38,7 +38,8 @@ void printdata(void)
       //Serial.print(",");
       //Serial.print(ToDeg(yaw));
       //Serial.print(",");
-      Serial.print(ToDeg(Gyro_Vector[0]));
+      Serial.print(ToDeg
+      (Gyro_Vector[0])); //-AN_OFFSET[0]
       Serial.print(",");
       //Serial.print(ToDeg(Gyro_Vector[1]));
       //Serial.print(",");

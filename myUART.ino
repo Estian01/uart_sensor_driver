@@ -92,6 +92,8 @@ bool is_this_ready= false;
 
 #define STATUS_LED 13
 #define onofftime 0.02//0.4
+
+#define PI() 3.14159265358979323846264
 float G_Dt=0.01;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
 long timer=0;   //general purpuse timer
@@ -152,6 +154,9 @@ float Temporary_Matrix[3][3]={
   ,{
     0,0,0  }
 };
+
+float AMPLITUD=0.5, PERIODO=0.4;
+
 
 void resetVector(float v[3]) {
     for (int i = 0; i < 3; ++i)
@@ -249,21 +254,26 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
 
   e=0.0-roll;
 
-  //u=43.503246932384755041*e1 - 21.95437663765436298*e - 21.512803502947924983*e2 + 1.8535052807369114536*u1 - 0.83265300708364831106*u2;
+  //u=-(-K[0]*feedback.vel*2*PI() +K[1]*roll+K[2]*(Gyro_Vector[0]));   
+  //u= 0.2*sin(2*PI()/0.4*trefsegundos);
 
-  //u=-(-K[0]*feedback.vel*2*3.14159265358979323846264 +K[1]*roll+K[2]*(Gyro_Vector[0]));   
-   u=211.45722526770180139*e1 - 107.16805330958501941*e - 104.28926993053794092*e2 + 1.9703962490402568974*u1 - 0.97039319502697318764*u2;
-  
-  //u=0.06875;//0.0765625;
-  if (feedback.vel>=7.6||feedback.vel<=-7.6){
-    sat_counter++;
+  if(PERIODO==0){
+    u= AMPLITUD;
   }else{
-    sat_counter=0;
+    u= AMPLITUD * sin(2*PI()/PERIODO*trefsegundos);
   }
-  if (sat_counter>=5){
-    unsat_counter=10;
-  }
-  //lyapunov
+
+
+  // //u=0.06875;//0.0765625;
+  // if (feedback.vel>=7.6||feedback.vel<=-7.6){
+  //   sat_counter++;
+  // }else{
+  //   sat_counter=0;
+  // }
+  // if (sat_counter>=5){
+  //   unsat_counter=10;
+  // }
+  // //lyapunov
   //u=((26.6*0.365*9.81*sin(roll)-5*(roll-roll1)/0.2-100*abs((e-e1)/0.2+e)))/16.64;
 
   
@@ -496,11 +506,9 @@ void loop() {
     if (input.startsWith("OFFSET=")) {
       float newOffsetDeg = input.substring(7).toFloat();
       roll_offset = ToRad(newOffsetDeg);
-
+      u=0;
       resetSensor();
-    }
-
-    if (input.startsWith("K=")) {
+    }else if (input.startsWith("K=")) {
       input = input.substring(2);
       int idx1 = input.indexOf(',');
       int idx2 = input.indexOf(',', idx1 + 1);
@@ -515,8 +523,27 @@ void loop() {
       } else {
         Serial.println("Error en el formato de K. Usa: K=x,y,z");
       }
+    }else if(input.startsWith("U=")) {
+      input = input.substring(2);
+      int idx1 = input.indexOf(',');
+      if (idx1!=-1){
+        u=0;
+        //delay(2500);
+        //odrive.setState(AXIS_STATE_IDLE);
+
+        
+        AMPLITUD= input.substring(0, idx1).toFloat();
+        PERIODO = input.substring(idx1 + 1).toFloat();
+        //       
+        odrive.clearErrors();
+        odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+        //delay(10);
+      }
     }
+
   }
+
+  
 
   if (!is_this_ready) {
     while (odrive.getState() == AXIS_STATE_UNDEFINED) {
