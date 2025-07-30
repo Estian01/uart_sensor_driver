@@ -252,8 +252,6 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
 
   if(!pasoxcero){//u definition MUST BE BEFORE this conditional
     //if(sign(roll)!=sign(roll1))
-    if(roll>ToRad(0.02))
-      {pasoxcero=true;}
     u=0;
     tref=0;
     //u=0.1;
@@ -382,6 +380,13 @@ void loop() {
       }else if(input=="ON"){
         odrive.clearErrors();
         odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+      }
+    }else if(input.startsWith("P=")) {
+      input = input.substring(2);
+      if(input=="OFF"){
+        pasoxcero=false;
+      }else if(input=="ON"){
+        pasoxcero=true;
       }
     }
   }
