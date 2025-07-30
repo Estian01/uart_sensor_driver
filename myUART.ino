@@ -264,19 +264,30 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
 
   //u=-(-K[0]*feedback.vel*2*PI() +K[1]*roll+K[2]*(Gyro_Vector[0]));   
   //u= 0.2*sin(2*PI()/0.4*trefsegundos);
-
-  if(controlMode==U_OFF){
-    u=0;
-  }else if(controlMode==U_FREQ){
-    if(PERIODO==0){
-    u= AMPLITUD;
-    }else{
-    u= AMPLITUD * sin(2*PI()/PERIODO*trefsegundos);
+  switch(controlMode){
+    case U_OFF:{
+      u=0;
+      break;
     }
-  }else if(controlMode==U_CONTROL_STATE_FEEDBACK){
-    u=-(-K[0]*feedback.vel*2*PI() +K[1]*roll+K[2]*(Gyro_Vector[0]));
+    case U_FREQ:{
+      if(PERIODO==0){
+      u= AMPLITUD;
+      }else{
+      u= AMPLITUD * sin(2*PI()/PERIODO*trefsegundos);
+      }
+      break;
+    }
+    case U_CONTROL_STATE_FEEDBACK:{
+      u=-(-K[0]*feedback.vel*2*PI() +K[1]*roll+K[2]*(Gyro_Vector[0]));
+      break;
+    }
+    default:{
+      u=0;
+      Serial.println("Default Control Mode");
+      break;
+    }      
   }
-  
+
 
 
   // //u=0.06875;//0.0765625;
