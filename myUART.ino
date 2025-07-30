@@ -204,6 +204,14 @@ int sign(float u){
 
 float roll_offset = ToRad(-3.4); //2.78 valor inicial en radianes
 
+enum myUMode{
+  U_OFF                     =0,
+  U_FREQ                    =1,
+  U_CONTROL_STATE_FEEDBACK  =2
+};
+
+enum myUMode controlMode=U_OFF;
+
 void timerCallback(){
   t=t+intervaltimer;
   tseconds=t/1000.0;
@@ -257,11 +265,18 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
   //u=-(-K[0]*feedback.vel*2*PI() +K[1]*roll+K[2]*(Gyro_Vector[0]));   
   //u= 0.2*sin(2*PI()/0.4*trefsegundos);
 
-  if(PERIODO==0){
+  if(controlMode==U_OFF){
+    u=0;
+  }else if(controlMode==U_FREQ){
+    if(PERIODO==0){
     u= AMPLITUD;
-  }else{
+    }else{
     u= AMPLITUD * sin(2*PI()/PERIODO*trefsegundos);
+    }
+  }else if(controlMode==U_CONTROL_STATE_FEEDBACK){
+    u=-(-K[0]*feedback.vel*2*PI() +K[1]*roll+K[2]*(Gyro_Vector[0]));
   }
+  
 
 
   // //u=0.06875;//0.0765625;
@@ -450,51 +465,6 @@ void setup() {
   resetVars();
 }
 
-// void loop() {
-//   if (is_this_ready==false){
-//       while (odrive.getState() == AXIS_STATE_UNDEFINED) {
-//       delay(100);
-//       //Serial.println("found ODrive");
-//     //Serial.print("DC voltage: ");
-//     //Serial.println(odrive.getParameterAsFloat("vbus_voltage"));
-
-//     is_this_ready=true;
-
-//     }
-
-//     while (odrive.getState() != AXIS_STATE_CLOSED_LOOP_CONTROL) {
-//       odrive.clearErrors();
-//       odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
-//       delay(10);
-//     }
-
-//   }
-
-//     if (Serial.available()) {
-//     String input = Serial.readStringUntil('\n');
-//     input.trim();
-
-//     if (input.startsWith("OFFSET=")) {
-//       float newOffsetDeg = input.substring(7).toFloat();
-//       roll_offset = ToRad(newOffsetDeg);
-
-//     }
-
-//     if (input.startsWith("K=")) {
-//       // Formato: K=-0.01,-123,-45.6
-//       input = input.substring(2); // quitar "K="
-//       int idx1 = input.indexOf(',');
-//       int idx2 = input.indexOf(',', idx1 + 1);
-
-//       if (idx1 != -1 && idx2 != -1) {
-//         K[0] = input.substring(0, idx1).toFloat();
-//         K[1] = input.substring(idx1 + 1, idx2).toFloat();
-//         K[2] = input.substring(idx2 + 1).toFloat();
-
-//       }
-//     }
-//   }
-// }
 
 void loop() {
 
@@ -517,7 +487,7 @@ void loop() {
         K[0] = input.substring(0, idx1).toFloat();
         K[1] = input.substring(idx1 + 1, idx2).toFloat();
         K[2] = input.substring(idx2 + 1).toFloat();
-
+        controlMode=U_CONTROL_STATE_FEEDBACK;
         resetSensor();
 
       } else {
@@ -534,13 +504,22 @@ void loop() {
         
         AMPLITUD= input.substring(0, idx1).toFloat();
         PERIODO = input.substring(idx1 + 1).toFloat();
-        //       
+        controlMode=U_FREQ;
         odrive.clearErrors();
         odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
         //delay(10);
       }
+    }else if(input.startsWith("M=")) {
+      input = input.substring(2);
+      if(input=="OFF"){
+        u=0;
+        odrive.setState(AXIS_STATE_IDLE);
+        controlMode=U_OFF;
+      }else if(input=="ON"){
+        odrive.clearErrors();
+        odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+      }
     }
-
   }
 
   
