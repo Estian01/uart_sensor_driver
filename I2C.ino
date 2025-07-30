@@ -157,3 +157,88 @@ void Read_Compass()
 #endif
 }
 
+void sensorUpdate(unsigned int counter, long timer_old, long timer, float G_Dt){
+  counter++;
+    timer_old = timer;
+    timer=millis();
+    if (timer>timer_old)
+    {
+      G_Dt = (timer-timer_old)/1000.0;    // Real time of loop run. We use this on the DCM algorithm (gyro integration time)
+      if (G_Dt > 0.2)
+        G_Dt = 0; // ignore integration times over 100 ms   //200 ms
+    }
+    else
+      G_Dt = 0;
+
+    // * DCM algorithm
+    // Data adquisition
+    Read_Gyro();   // This read gyro data
+    Read_Accel();     // Read I2C accelerometer
+
+    if (counter > 5)  // Read compass data at 10Hz... (5 loop runs)
+    {
+      counter=0;
+      Read_Compass();    // Read I2C magnetometer
+      Compass_Heading(); // Calculate magnetic heading
+    }
+
+    // Calculations...
+    Matrix_update();
+    Normalize();
+    Drift_correction();
+    Euler_angles();
+}
+
+void resetVars(){
+  delay(10);
+
+  //Serial.println("The device started, now you can pair it with bluetooth!");
+
+  pinMode (STATUS_LED,OUTPUT);  // Status LED
+  pinMode (VDD_sensor_pin,OUTPUT);
+  digitalWrite(VDD_sensor_pin,HIGH);
+
+  digitalWrite(STATUS_LED,LOW);
+  delay(1500);
+
+  Accel_Init();
+  Compass_Init();
+  Gyro_Init();
+
+  delay(20);
+
+  for(int i=0;i<32;i++)    // We take some readings...
+    {
+    Read_Gyro();
+    Read_Accel();
+    for(int y=0; y<6; y++)   // Cumulate values
+      AN_OFFSET[y] += AN[y];
+    delay(20);
+    }
+
+  for(int y=0; y<6; y++)
+    AN_OFFSET[y] = AN_OFFSET[y]/32;
+
+  AN_OFFSET[5]-=GRAVITY*SENSOR_SIGN[5]*cos(roll_offset);
+  AN_OFFSET[4]-=GRAVITY*SENSOR_SIGN[5]*sin(roll_offset);
+
+  //Serial.println("Offset:");
+  for(int y=0; y<6; y++)
+    Serial.println(AN_OFFSET[y]);
+
+  delay(2000);
+  digitalWrite(STATUS_LED,HIGH);
+
+  timer=millis();
+  delay(20);
+  counter=0;
+
+  odrive_serial.begin(baudrate,SERIAL_8N1,16,17);
+
+  Serial.println("Waiting for ODrive...");
+  
+  //timer
+   timeri.attach_ms(intervaltimer, timerCallback);
+
+}
+

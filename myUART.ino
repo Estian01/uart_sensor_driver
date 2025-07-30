@@ -2,6 +2,8 @@
 #include <Wire.h>
 #include <Ticker.h>
 
+#include "mymisc.h"
+
 #define I2C_SDA 21
 #define I2C_SCL 22
 // Uncomment the following line to use a MinIMU-9 v5 or AltIMU-10 v5. Leave commented for older IMUs (up through v4).
@@ -18,13 +20,6 @@ float e=0.0, e1=0.0, e2=0.0, e3=0.0, e4=0.0, roll1=0.0;
 // You can comment out the default one and uncomment the one you wish to use.
 // You can of course use something different if you like
 // Don't forget to also connect ODrive ISOVDD and ISOGND to Arduino 3.3V/5V and GND.
-
-// Arduino without spare serial ports (such as Arduino UNO) have to use software serial.
-// Note that this is implemented poorly and can lead to wrong data sent or read.
-// pin 8: RX - connect to ODrive TX
-// pin 9: TX - connect to ODrive RX
-//SoftwareSerial odrive_serial(8, 9);onof
-//unsigned long baudrate = 19200; // Must match what you configure on the ODrive (see docs for details)
 
 // Teensy 3 and 4 (all versions) - Serial1
 // pin 0: RX - connect to ODrive TX
@@ -131,7 +126,6 @@ float yaw=0;
 float errorRollPitch[3]= {0,0,0};
 float errorYaw[3]= {0,0,0};
 
-
 unsigned int counter=0;
 //byte gyro_sat=0;
 
@@ -156,13 +150,6 @@ float Temporary_Matrix[3][3]={
 };
 
 float AMPLITUD=0.5, PERIODO=0.4;
-
-
-void resetVector(float v[3]) {
-    for (int i = 0; i < 3; ++i)
-        v[i] = 0.0f;
-}
-
 //
 Ticker timeri;
 const unsigned long interval = 10;  // Intervalo de muestreo en milisegundos <------ min T= 4
@@ -180,35 +167,12 @@ int sat_counter=0;
 int unsat_counter=0;
 int signu=0;
 
-//#define ROLL_OFFSET ToRad(-3)//-2.78  //Initial roll offset in deg/radians
-
-
 bool pasoxcero= false; //Se activa cuando la bici pasa por cero para activar el control
 
 double K[]={-0.001862943, -155.4314, -33.66148};
 double uref=0;
 
- 
-int sign(float u){
-  if (u>0){return 1;}
-  else if(u<0){return -1;}
-  else if(u==0){return 0;}
-}
-
-  void resetMatrix(float m[3][3]) {
-      for (int i = 0; i < 3; ++i)
-          for (int j = 0; j < 3; ++j)
-              m[i][j] = 0.0;
-  }
-
-
 float roll_offset = ToRad(-3.4); //2.78 valor inicial en radianes
-
-enum myUMode{
-  U_OFF                     =0,
-  U_FREQ                    =1,
-  U_CONTROL_STATE_FEEDBACK  =2
-};
 
 enum myUMode controlMode=U_OFF;
 
@@ -227,36 +191,7 @@ void timerCallback(){
 if((millis()-timer)>=10)  // Main loop runs at 50Hz
   {
     digitalWrite(STATUS_LED,HIGH);
-    counter++;
-    timer_old = timer;
-    timer=millis();
-    if (timer>timer_old)
-    {
-      G_Dt = (timer-timer_old)/1000.0;    // Real time of loop run. We use this on the DCM algorithm (gyro integration time)
-      if (G_Dt > 0.2)
-        G_Dt = 0; // ignore integration times over 100 ms   //200 ms
-    }
-    else
-      G_Dt = 0;
-
-    // * DCM algorithm
-    // Data adquisition
-    Read_Gyro();   // This read gyro data
-    Read_Accel();     // Read I2C accelerometer
-
-    if (counter > 5)  // Read compass data at 10Hz... (5 loop runs)
-    {
-      counter=0;
-      Read_Compass();    // Read I2C magnetometer
-      Compass_Heading(); // Calculate magnetic heading
-    }
-
-    // Calculations...
-    Matrix_update();
-    Normalize();
-    Drift_correction();
-    Euler_angles();
-    
+    sensorUpdate(counter, timer_old, timer, G_Dt);
     digitalWrite(STATUS_LED,LOW);
   }
 
@@ -287,32 +222,6 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
       break;
     }      
   }
-
-
-
-  // //u=0.06875;//0.0765625;
-  // if (feedback.vel>=7.6||feedback.vel<=-7.6){
-  //   sat_counter++;
-  // }else{
-  //   sat_counter=0;
-  // }
-  // if (sat_counter>=5){
-  //   unsat_counter=10;
-  // }
-  // //lyapunov
-  //u=((26.6*0.365*9.81*sin(roll)-5*(roll-roll1)/0.2-100*abs((e-e1)/0.2+e)))/16.64;
-
-  
-/*
-  if (unsat_counter>0){
-    if(u>0){signu=1;}
-    else if (u<0){signu=-1;}
-    else if (u==0){signu=0;}
-    u=-signu*1;
-    unsat_counter--;
-  }
-  */
-
 
  /* 
  if(trefsegundos>=0 && trefsegundos<onofftime){
@@ -359,8 +268,6 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
   printdata();
   Serial.print(u);
   Serial.print(", ");
-  
-  
 
   if (odrive.getState() == AXIS_STATE_CLOSED_LOOP_CONTROL) {
     //Serial.print(feedback.pos);
@@ -393,59 +300,6 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
   roll1=roll;
 }
 
-void resetVars(){
-  delay(10);
-
-  //Serial.println("The device started, now you can pair it with bluetooth!");
-
-  pinMode (STATUS_LED,OUTPUT);  // Status LED
-  pinMode (VDD_sensor_pin,OUTPUT);
-  digitalWrite(VDD_sensor_pin,HIGH);
-
-  digitalWrite(STATUS_LED,LOW);
-  delay(1500);
-
-  Accel_Init();
-  Compass_Init();
-  Gyro_Init();
-
-  delay(20);
-
-  for(int i=0;i<32;i++)    // We take some readings...
-    {
-    Read_Gyro();
-    Read_Accel();
-    for(int y=0; y<6; y++)   // Cumulate values
-      AN_OFFSET[y] += AN[y];
-    delay(20);
-    }
-
-  for(int y=0; y<6; y++)
-    AN_OFFSET[y] = AN_OFFSET[y]/32;
-
-  AN_OFFSET[5]-=GRAVITY*SENSOR_SIGN[5]*cos(roll_offset);
-  AN_OFFSET[4]-=GRAVITY*SENSOR_SIGN[5]*sin(roll_offset);
-
-  //Serial.println("Offset:");
-  for(int y=0; y<6; y++)
-    Serial.println(AN_OFFSET[y]);
-
-  delay(2000);
-  digitalWrite(STATUS_LED,HIGH);
-
-  timer=millis();
-  delay(20);
-  counter=0;
-
-  odrive_serial.begin(baudrate,SERIAL_8N1,16,17);
-
-  Serial.println("Waiting for ODrive...");
-  
-  //timer
-   timeri.attach_ms(intervaltimer, timerCallback);
-
-}
-
 void resetSensor(){
   is_this_ready=false;
       pasoxcero=false;
@@ -475,7 +329,6 @@ void setup() {
 
   resetVars();
 }
-
 
 void loop() {
 
@@ -533,8 +386,6 @@ void loop() {
     }
   }
 
-  
-
   if (!is_this_ready) {
     while (odrive.getState() == AXIS_STATE_UNDEFINED) {
       delay(100);
@@ -548,4 +399,3 @@ void loop() {
     }
   }
 }
-
