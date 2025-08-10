@@ -10,7 +10,8 @@ void resetVars();
 enum myUMode{
   U_OFF                     =0,
   U_FREQ                    =1,
-  U_CONTROL_STATE_FEEDBACK  =2
+  U_CONTROL_STATE_FEEDBACK  =2,
+  U_FOURIER                 =3
 };
 
 

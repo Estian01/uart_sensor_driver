@@ -172,9 +172,13 @@ bool pasoxcero= false; //Se activa cuando la bici pasa por cero para activar el 
 double K[]={-0.001862943, -155.4314, -33.66148};
 double uref=0;
 
-float roll_offset = ToRad(-3.4); //2.78 valor inicial en radianes
+float AMP[]={0,0,0,0};
+float PER[]={0,0,0,0};
+
+float roll_offset = ToRad(-3); //2.78 valor inicial en radianes
 
 enum myUMode controlMode=U_OFF;
+
 
 void timerCallback(){
   t=t+intervaltimer;
@@ -216,6 +220,10 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
       u=-(-K[0]*feedback.vel*2*PI() +K[1]*roll+K[2]*(Gyro_Vector[0]));
       break;
     }
+    case U_FOURIER:{
+      u=AMP[0]* sin(2*PI()/PER[0]*trefsegundos)+AMP[1]* sin(2*PI()/PER[1]*trefsegundos)+AMP[2]* sin(2*PI()/PER[2]*trefsegundos)+AMP[3]* sin(2*PI()/PER[3]*trefsegundos);
+      break;
+    }
     default:{
       u=0;
       Serial.println("Default Control Mode");
@@ -252,6 +260,10 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
 
   if(!pasoxcero){//u definition MUST BE BEFORE this conditional
     //if(sign(roll)!=sign(roll1))
+      // if(roll>ToRad(0.02))
+      // {pasoxcero=true;
+      // controlMode= U_FREQ;
+      // }
     u=0;
     tref=0;
     //u=0.1;
@@ -281,6 +293,7 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
     Serial.print(0); Serial.print(", ");
     Serial.print(0); Serial.print(", ");
   }
+  //Serial.print(pasoxcero); Serial.print(", ");
   Serial.println();
   //u=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
   //Serial.println();
@@ -350,7 +363,8 @@ void loop() {
         K[1] = input.substring(idx1 + 1, idx2).toFloat();
         K[2] = input.substring(idx2 + 1).toFloat();
         controlMode=U_CONTROL_STATE_FEEDBACK;
-        resetSensor();
+        pasoxcero= true;
+        //resetSensor();
 
       } else {
         Serial.println("Error en el formato de K. Usa: K=x,y,z");
@@ -385,10 +399,41 @@ void loop() {
       input = input.substring(2);
       if(input=="OFF"){
         pasoxcero=false;
+        odrive.setState(AXIS_STATE_IDLE);
       }else if(input=="ON"){
         pasoxcero=true;
+        tref=0;
       }
-    }
+    }else if(input.startsWith("F=")){
+      input = input.substring(2);
+      int idx[7];
+      int previdx=-1;
+      int i=0;
+      for (i=0; i<7; i++){
+        idx[i]=input.indexOf(',',previdx+1);
+        previdx=idx[i];
+      }
+
+      bool check=true;
+      
+      for (i=0; i<7; i++){
+        check= check && (idx[i])!=-1;//revisa que todo idx!=-1
+      }
+      if(check){
+        AMP[0]=input.substring(0,idx[0]).toFloat();
+        AMP[1]=input.substring(idx[0]+1,idx[1]).toFloat();
+        AMP[2]=input.substring(idx[1]+1,idx[2]).toFloat();
+        AMP[3]=input.substring(idx[2]+1,idx[3]).toFloat();
+        PER[0]=input.substring(idx[3]+1,idx[4]).toFloat();
+        PER[1]=input.substring(idx[4]+1,idx[5]).toFloat();
+        PER[2]=input.substring(idx[5]+1,idx[6]).toFloat();
+        PER[3]=input.substring(idx[6]+1).toFloat();
+        
+      }
+        controlMode=U_FOURIER;
+        //resetSensor();
+      }
+  //*/
   }
 
   if (!is_this_ready) {
