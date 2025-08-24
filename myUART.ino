@@ -1,15 +1,21 @@
 #include <ODriveUART.h>
 #include <Wire.h>
-#include <Ticker.h>
+//#include <Ticker.h>
+#include <IntervalTimer.h>
 
 #include "mymisc.h"
+// //ESP32
+// #define I2C_SDA 21
+// #define I2C_SCL 22
 
-#define I2C_SDA 21
-#define I2C_SCL 22
+//Teensy
+#define I2C_SDA 18
+#define I2C_SCL 19
+
 // Uncomment the following line to use a MinIMU-9 v5 or AltIMU-10 v5. Leave commented for older IMUs (up through v4).
 #define IMU_V5
 
-#define VDD_sensor_pin 19
+//#define VDD_sensor_pin 19
 
 float u=0.0, u1=0,u2=0.0, u3=0.0, u4=0.0;
 float e=0.0, e1=0.0, e2=0.0, e3=0.0, e4=0.0, roll1=0.0;
@@ -30,6 +36,10 @@ float e=0.0, e1=0.0, e2=0.0, e3=0.0, e4=0.0, roll1=0.0;
 
 //ESP32
 HardwareSerial& odrive_serial = Serial2;
+
+//Teensy4.1 Serial2
+// pin7 RX
+//pin8 TX
 int baudrate = 115200; // Must match what you configure on the ODrive (see docs for details)
 
 ODriveUART odrive(odrive_serial);
@@ -85,10 +95,10 @@ bool is_this_ready= false;
 #define PRINT_ANALOGS 0 //Will print the analog raw data
 #define PRINT_EULER 1   //Will print the Euler angles Roll, Pitch and Yaw
 
-#define STATUS_LED 13
+#define STATUS_LED 10
 #define onofftime 0.02//0.4
 
-#define PI() 3.14159265358979323846264
+//#define PI() 3.14159265358979323846264
 float G_Dt=0.01;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
 long timer=0;   //general purpuse timer
@@ -151,7 +161,7 @@ float Temporary_Matrix[3][3]={
 
 float AMPLITUD=0.5, PERIODO=0.4;
 //
-Ticker timeri;
+IntervalTimer timeri;
 const unsigned long interval = 10;  // Intervalo de muestreo en milisegundos <------ min T= 4
 const unsigned long intervaltimer = interval; 
 
@@ -169,7 +179,7 @@ int signu=0;
 
 bool pasoxcero= false; //Se activa cuando la bici pasa por cero para activar el control
 
-double K[]={-0.001862943, -155.4314, -33.66148};
+double K[]={-0.0006689369, -142.9209, -27.55614};
 double uref=0;
 
 float AMP[]={0,0,0,0};
@@ -177,7 +187,7 @@ float PER[]={0,0,0,0};
 
 float roll_offset = ToRad(-3); //2.78 valor inicial en radianes
 
-enum myUMode controlMode=U_OFF;
+enum myUMode controlMode=U_OFF;//U_OFF;
 
 
 void timerCallback(){
@@ -201,8 +211,8 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
 
   e=0.0-roll;
 
-  //u=-(-K[0]*feedback.vel*2*PI() +K[1]*roll+K[2]*(Gyro_Vector[0]));   
-  //u= 0.2*sin(2*PI()/0.4*trefsegundos);
+  //u=-(-K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));   
+  //u= 0.2*sin(2*PI/0.4*trefsegundos);
   switch(controlMode){
     case U_OFF:{
       u=0;
@@ -212,16 +222,16 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
       if(PERIODO==0){
       u= AMPLITUD;
       }else{
-      u= AMPLITUD * sin(2*PI()/PERIODO*trefsegundos);
+      u= AMPLITUD * sin(2*PI/PERIODO*trefsegundos);
       }
       break;
     }
     case U_CONTROL_STATE_FEEDBACK:{
-      u=-(-K[0]*feedback.vel*2*PI() +K[1]*roll+K[2]*(Gyro_Vector[0]));
+      u=-(-K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
       break;
     }
     case U_FOURIER:{
-      u=AMP[0]* sin(2*PI()/PER[0]*trefsegundos)+AMP[1]* sin(2*PI()/PER[1]*trefsegundos)+AMP[2]* sin(2*PI()/PER[2]*trefsegundos)+AMP[3]* sin(2*PI()/PER[3]*trefsegundos);
+      u=AMP[0]* sin(2*PI/PER[0]*trefsegundos)+AMP[1]* sin(2*PI/PER[1]*trefsegundos)+AMP[2]* sin(2*PI/PER[2]*trefsegundos)+AMP[3]* sin(2*PI/PER[3]*trefsegundos);
       break;
     }
     default:{
@@ -315,7 +325,8 @@ void resetSensor(){
   is_this_ready=false;
       pasoxcero=false;
       u=0;
-      timeri.detach();
+      //timeri.detach();
+      timeri.end();
       odrive.setState(AXIS_STATE_IDLE);
       delay(500);
       //resetMatrix(DCM_Matrix);
@@ -347,6 +358,7 @@ void loop() {
   if (Serial.available()) {
     String input = Serial.readStringUntil('\n');
     input.trim();
+    //Serial.println(input);
 
     if (input.startsWith("OFFSET=")) {
       float newOffsetDeg = input.substring(7).toFloat();
@@ -437,6 +449,7 @@ void loop() {
   }
 
   if (!is_this_ready) {
+    //Serial.println(odrive.getState());
     while (odrive.getState() == AXIS_STATE_UNDEFINED) {
       delay(100);
       is_this_ready = true;

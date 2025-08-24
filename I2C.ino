@@ -163,8 +163,8 @@ void resetVars(){
   //Serial.println("The device started, now you can pair it with bluetooth!");
 
   pinMode (STATUS_LED,OUTPUT);  // Status LED
-  pinMode (VDD_sensor_pin,OUTPUT);
-  digitalWrite(VDD_sensor_pin,HIGH);
+  //pinMode (VDD_sensor_pin,OUTPUT);
+  //digitalWrite(VDD_sensor_pin,HIGH);
 
   digitalWrite(STATUS_LED,LOW);
   delay(1500);
@@ -201,12 +201,13 @@ void resetVars(){
   delay(20);
   counter=0;
 
-  odrive_serial.begin(baudrate,SERIAL_8N1,16,17);
+  odrive_serial.begin(baudrate,SERIAL_8N1);//,SERIAL_8N1,16,17;
 
   Serial.println("Waiting for ODrive...");
   
   //timer
-   timeri.attach_ms(intervaltimer, timerCallback);
+   //timeri.attach_ms(intervaltimer, timerCallback);
+  timeri.begin(timerCallback,intervaltimer*1000);
 }
 
 void sensorUpdate(unsigned int counter, long timer_old, long timer, float G_Dt){
