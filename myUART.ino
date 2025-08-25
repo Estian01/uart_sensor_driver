@@ -40,7 +40,7 @@ HardwareSerial& odrive_serial = Serial2;
 //Teensy4.1 Serial2
 // pin7 RX
 //pin8 TX
-int baudrate = 115200; // Must match what you configure on the ODrive (see docs for details)
+int baudrate = 230400; // Must match what you configure on the ODrive (see docs for details)
 
 ODriveUART odrive(odrive_serial);
 
@@ -189,6 +189,18 @@ float roll_offset = ToRad(-3); //2.78 valor inicial en radianes
 
 enum myUMode controlMode=U_OFF;//U_OFF;
 
+struct OutputLog{
+  float phi;
+  float dphi;
+  float az;
+  float u;
+  float omega;
+  float torque_SP;
+  float torque_est;
+};
+
+const int BUFFER_SIZE=255;
+
 
 void timerCallback(){
   t=t+intervaltimer;
@@ -290,23 +302,24 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
   Serial.print(", ");
 
   if (odrive.getState() == AXIS_STATE_CLOSED_LOOP_CONTROL) {
-    //Serial.print(feedback.pos);
-    //Serial.print(", ");
+  //   //Serial.print(feedback.pos);
+  //   //Serial.print(", ");
     Serial.print(feedback.vel);
     Serial.print(", ");
     Serial.print(odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint"));
     Serial.print(", ");
-    Serial.print(odrive.getParameterAsString("axis0.motor.torque_estimate"));
+    Serial.print(odrive.getParameterAsFloat("axis0.motor.torque_estimate"));
     Serial.print(", ");
   }else {
     Serial.print(0); Serial.print(", ");
     Serial.print(0); Serial.print(", ");
     Serial.print(0); Serial.print(", ");
   }
-  //Serial.print(pasoxcero); Serial.print(", ");
+  // Serial.print(Serial.availableForWrite());
+  // //Serial.print(pasoxcero); Serial.print(", ");
+  // Serial.println();
+  // //u=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
   Serial.println();
-  //u=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
-  //Serial.println();
   
   if(pasoxcero){
     u4=u3;
@@ -365,6 +378,16 @@ void loop() {
       roll_offset = ToRad(newOffsetDeg);
       u=0;
       resetSensor();
+    }else if(input.startsWith("M=")) {
+      input = input.substring(2);
+      if(input=="OFF"){
+        u=0;
+        odrive.setState(AXIS_STATE_IDLE);
+        controlMode=U_OFF;
+      }else if(input=="ON"){
+        odrive.clearErrors();
+        odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+      }
     }else if (input.startsWith("K=")) {
       input = input.substring(2);
       int idx1 = input.indexOf(',');
@@ -396,16 +419,6 @@ void loop() {
         odrive.clearErrors();
         odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
         //delay(10);
-      }
-    }else if(input.startsWith("M=")) {
-      input = input.substring(2);
-      if(input=="OFF"){
-        u=0;
-        odrive.setState(AXIS_STATE_IDLE);
-        controlMode=U_OFF;
-      }else if(input=="ON"){
-        odrive.clearErrors();
-        odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
       }
     }else if(input.startsWith("P=")) {
       input = input.substring(2);

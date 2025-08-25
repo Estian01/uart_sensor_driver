@@ -38,15 +38,14 @@ void printdata(void)
       //Serial.print(",");
       //Serial.print(ToDeg(yaw));
       //Serial.print(",");
-      Serial.print(ToDeg
-      (Gyro_Vector[0])); //-AN_OFFSET[0]
+      Serial.print(ToDeg(Gyro_Vector[0])); //-AN_OFFSET[0]
       Serial.print(",");
       //Serial.print(ToDeg(Gyro_Vector[1]));
       //Serial.print(",");
       //Serial.print(ToDeg(Gyro_Vector[2]));
       //Serial.print(",");
-      Serial.print(Accel_Vector[0]);
-      Serial.print(",");
+      //Serial.print(Accel_Vector[0]);
+      //Serial.print(",");
       //Serial.print(Accel_Vector[1]);
       //Serial.print(",");
       // Serial.print(Accel_Vector[2]);

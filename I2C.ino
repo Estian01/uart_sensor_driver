@@ -208,6 +208,7 @@ void resetVars(){
   //timer
    //timeri.attach_ms(intervaltimer, timerCallback);
   timeri.begin(timerCallback,intervaltimer*1000);
+  //timeri.
 }
 
 void sensorUpdate(unsigned int counter, long timer_old, long timer, float G_Dt){
