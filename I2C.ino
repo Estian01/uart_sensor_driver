@@ -167,7 +167,7 @@ void resetVars(){
   //digitalWrite(VDD_sensor_pin,HIGH);
 
   digitalWrite(STATUS_LED,LOW);
-  delay(1500);
+  delay(1500); //por quitar
 
   Accel_Init();
   Compass_Init();
@@ -181,7 +181,7 @@ void resetVars(){
     Read_Accel();
     for(int y=0; y<6; y++)   // Cumulate values
       AN_OFFSET[y] += AN[y];
-    delay(20);
+    delay(20); //revisar
     }
 
   for(int y=0; y<6; y++)
@@ -201,7 +201,7 @@ void resetVars(){
   delay(20);
   counter=0;
 
-  odrive_serial.begin(baudrate,SERIAL_8N1);//,SERIAL_8N1,16,17;
+  odrive_serial.begin(baudrate,SERIAL_8N1);//,SERIAL_8N1,16,17; //por mover
 
   Serial.println("Waiting for ODrive...");
   

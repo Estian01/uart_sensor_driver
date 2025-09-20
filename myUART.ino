@@ -179,7 +179,8 @@ int signu=0;
 
 bool pasoxcero= false; //Se activa cuando la bici pasa por cero para activar el control
 
-double K[]={-0.0006689369, -142.9209, -27.55614};
+//double K[]={-0.0006689369, -142.9209, -27.55614};
+double K[]={-0.0005566705, -118.4083, -18.84987};
 double uref=0;
 
 float AMP[]={0,0,0,0};
@@ -203,6 +204,7 @@ const int BUFFER_SIZE=255;
 
 
 void timerCallback(){
+  digitalWrite(STATUS_LED,HIGH);
   t=t+intervaltimer;
   tseconds=t/1000.0;
 
@@ -216,9 +218,7 @@ void timerCallback(){
 
 if((millis()-timer)>=10)  // Main loop runs at 50Hz
   {
-    digitalWrite(STATUS_LED,HIGH);
     sensorUpdate(counter, timer_old, timer, G_Dt);
-    digitalWrite(STATUS_LED,LOW);
   }
 
   e=0.0-roll;
@@ -315,6 +315,11 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
     Serial.print(0); Serial.print(", ");
     Serial.print(0); Serial.print(", ");
   }
+    Serial.print(ToDeg(Gyro_Vector[1]));
+    Serial.print(",");
+    Serial.print(ToDeg(Gyro_Vector[2]));
+    Serial.print(",");
+    Serial.print(Accel_Vector[2]);
   // Serial.print(Serial.availableForWrite());
   // //Serial.print(pasoxcero); Serial.print(", ");
   // Serial.println();
@@ -332,6 +337,7 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
     e1=e;
   }
   roll1=roll;
+  digitalWrite(STATUS_LED,LOW);
 }
 
 void resetSensor(){
@@ -341,7 +347,7 @@ void resetSensor(){
       //timeri.detach();
       timeri.end();
       odrive.setState(AXIS_STATE_IDLE);
-      delay(500);
+      //delay(500);
       //resetMatrix(DCM_Matrix);
       resetMatrix(Temporary_Matrix);
       resetVector(Accel_Vector);
@@ -400,7 +406,6 @@ void loop() {
         controlMode=U_CONTROL_STATE_FEEDBACK;
         pasoxcero= true;
         //resetSensor();
-
       } else {
         Serial.println("Error en el formato de K. Usa: K=x,y,z");
       }
