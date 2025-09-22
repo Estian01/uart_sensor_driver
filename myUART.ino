@@ -367,7 +367,7 @@ void setup() {
   Serial.println("Pololu MinIMU-9 + Arduino AHRS");
 
   setupVars();
-  resetVars();
+  //resetVars();
 }
 
 void loop() {
@@ -472,10 +472,10 @@ void loop() {
       is_this_ready = true;
     }
 
-    while (odrive.getState() != AXIS_STATE_CLOSED_LOOP_CONTROL) {
-      odrive.clearErrors();
-      odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
-      delay(10);
-    }
+    // while (odrive.getState() != AXIS_STATE_CLOSED_LOOP_CONTROL) {
+    //   odrive.clearErrors();
+    //   odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+    //   delay(10);
+    // }
   }
 }

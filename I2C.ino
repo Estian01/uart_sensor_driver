@@ -156,16 +156,6 @@ void Read_Compass()
   magnetom_z = SENSOR_SIGN[8] * compass.m.z;
 #endif
 }
-void setupVars(){
-  delay(10);
-  pinMode (STATUS_LED,OUTPUT);  // Status LED
-  digitalWrite(STATUS_LED,LOW);
-  delay(1000); //por quitar
-  Accel_Init();
-  Compass_Init();
-  Gyro_Init();
-  delay(20);
-}
 
 void resetVars(){
   for(int y=0; y<6; y++)   // Cumulate values
@@ -186,24 +176,36 @@ void resetVars(){
   AN_OFFSET[4]-=GRAVITY*SENSOR_SIGN[5]*sin(roll_offset);
 
   //Serial.println("Offset:");
-  for(int y=0; y<6; y++)
-    Serial.println(AN_OFFSET[y]);
+  // for(int y=0; y<6; y++)
+  //   Serial.println(AN_OFFSET[y]);
 
-  delay(2000);
-  digitalWrite(STATUS_LED,HIGH);
+  // delay(2000);
+  // digitalWrite(STATUS_LED,HIGH);
 
   timer=millis();
   delay(20);
   counter=0;
-
-  odrive_serial.begin(baudrate,SERIAL_8N1);//,SERIAL_8N1,16,17; //por mover
-
-  Serial.println("Waiting for ODrive...");
   
   //timer
    //timeri.attach_ms(intervaltimer, timerCallback);
   timeri.begin(timerCallback,intervaltimer*1000);
   //timeri.
+}
+
+void setupVars(){
+  delay(10);
+  pinMode (STATUS_LED,OUTPUT);  // Status LED
+  digitalWrite(STATUS_LED,LOW);
+  delay(1000); //por quitar
+  Accel_Init();
+  Compass_Init();
+  Gyro_Init();
+  delay(20);
+  
+  resetVars();
+  odrive_serial.begin(baudrate,SERIAL_8N1);//,SERIAL_8N1,16,17; //por mover
+
+  Serial.println("Waiting for ODrive...");
 }
 
 void sensorUpdate(unsigned int counter, long timer_old, long timer, float G_Dt){
