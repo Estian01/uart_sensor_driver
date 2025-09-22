@@ -168,6 +168,8 @@ void setupVars(){
 }
 
 void resetVars(){
+  for(int y=0; y<6; y++)   // Cumulate values
+      AN_OFFSET[y]=0;
   for(int i=0;i<32;i++)    // We take some readings...
     {
     Read_Gyro();
