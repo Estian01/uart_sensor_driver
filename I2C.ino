@@ -91,7 +91,7 @@ void Accel_Init()
 #ifdef IMU_V5
   gyro_acc.init();
   gyro_acc.enableDefault();
-  gyro_acc.writeReg(LSM6::CTRL1_XL, 0x3C); // 52 Hz, 8 g full scale
+  gyro_acc.writeReg(LSM6::CTRL1_XL, 0x3C); // 52 Hz, 8 g full scale //0x3C for 
 #else
   compass.init();
   compass.enableDefault();
@@ -156,25 +156,18 @@ void Read_Compass()
   magnetom_z = SENSOR_SIGN[8] * compass.m.z;
 #endif
 }
-
-void resetVars(){
+void setupVars(){
   delay(10);
-
-  //Serial.println("The device started, now you can pair it with bluetooth!");
-
   pinMode (STATUS_LED,OUTPUT);  // Status LED
-  //pinMode (VDD_sensor_pin,OUTPUT);
-  //digitalWrite(VDD_sensor_pin,HIGH);
-
   digitalWrite(STATUS_LED,LOW);
-  delay(1500); //por quitar
-
+  delay(1000); //por quitar
   Accel_Init();
   Compass_Init();
   Gyro_Init();
-
   delay(20);
+}
 
+void resetVars(){
   for(int i=0;i<32;i++)    // We take some readings...
     {
     Read_Gyro();

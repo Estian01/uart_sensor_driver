@@ -15,8 +15,6 @@
 // Uncomment the following line to use a MinIMU-9 v5 or AltIMU-10 v5. Leave commented for older IMUs (up through v4).
 #define IMU_V5
 
-//#define VDD_sensor_pin 19
-
 float u=0.0, u1=0,u2=0.0, u3=0.0, u4=0.0;
 float e=0.0, e1=0.0, e2=0.0, e3=0.0, e4=0.0, roll1=0.0;
 // Documentation for this example can be found here: https://docs.odriverobotics.com/v/latest/guides/arduino-uart-guide.html
@@ -364,10 +362,11 @@ void resetSensor(){
 
 void setup() {
   
-  Serial.begin(115200); // Serial to PC
+  Serial.begin(230400); // Serial to PC
   I2C_Init();
   Serial.println("Pololu MinIMU-9 + Arduino AHRS");
 
+  setupVars();
   resetVars();
 }
 
