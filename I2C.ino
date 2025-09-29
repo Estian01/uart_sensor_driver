@@ -56,7 +56,7 @@ void Gyro_Init()
 {
 #ifdef IMU_V5
   // Accel_Init() should have already called gyro_acc.init() and enableDefault()
-  gyro_acc.writeReg(LSM6::CTRL2_G, 0x4C); // 104 Hz, 2000 dps full scale
+  gyro_acc.writeReg(LSM6::CTRL2_G, 0x4C); //0x4 104 Hz, 2000 dps full scale, 0x5 208 Hz
 #else
   gyro.init();
   gyro.enableDefault();
@@ -91,7 +91,7 @@ void Accel_Init()
 #ifdef IMU_V5
   gyro_acc.init();
   gyro_acc.enableDefault();
-  gyro_acc.writeReg(LSM6::CTRL1_XL, 0x3C); // 52 Hz, 8 g full scale //0x3C for 
+  gyro_acc.writeReg(LSM6::CTRL1_XL, 0x4C);//3C); // 52 Hz, 8 g full scale //0x3 52 Hz, 0x4 104 Hz
 #else
   compass.init();
   compass.enableDefault();
