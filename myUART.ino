@@ -190,18 +190,61 @@ float roll_offset = ToRad(-3.5); // valor inicial en radianes
 
 enum myUMode controlMode=U_OFF;//U_OFF;
 
-struct OutputLog{
-  float phi;
-  float dphi;
-  float az;
-  float u;
-  float omega;
-  float torque_SP;
-  float torque_est;
-};
+// struct OutputLog{
+//   float phi;
+//   float dphi;
+//   float az;
+//   float u;
+//   float omega;
+//   float torque_SP;
+//   float torque_est;
+// };
+// struct myLog{
+//   float a;
+//   float b;
 
-const int BUFFER_SIZE=255;
+// };
+float arr[]={0, 0, 0, 0, 0};
 
+// const int BUFFER_SIZE=255;
+
+float V[]={0.0, 0.0, 0.0, 0.0, 0.0};
+float Vprom=0;
+//float Vsorted[]={0.0, 0.0, 0.0, 0.0, 0.0};
+
+// const double Aobs[4][4]={{0.8670111,  0.07967813,          0,      0.8828448},
+//                         {0.0004896462,   0.8802067, 0.01000429, -0.00001282624},
+//                         {0.003277661,  -0.3587544,   1.001286,   -0.002565702},
+//                         {-0.00491945, 0.005835461,          0,            1.0}};
+const double Aobs[4][4]={{   0.819147, 0.0202023,         0,      0.882845},
+                        {0.000205936,  0.835748, 0.0100043, -0.0000128262},
+                        {0.00200806, -0.665895,   1.00129,    -0.0025657},
+                        {-0.00905287, 0.0019772,         0,           1.0}};
+
+// const double Bobs[4][3]={{     0.8828448,      0.132763,  -0.07967813},
+//                           {-0.00001282624, -0.0004896429,    0.1210796},
+//                           {-0.002565702,  -0.003277004,    0.6160752},
+//                           {             0,    0.00491945, -0.005835461}};
+const double Bobs[4][3]={{     0.882845,     0.180627, -0.0202023},
+                          {-0.0000128262, -0.000205932,   0.165538},
+                          {   -0.0025657,  -0.00200741,   0.923216},
+                          {            0,   0.00905287, -0.0019772}};
+
+float xo[]={0.0, 0.0, 0.0, 0.0};
+float xoa[]={0.0, 0.0, 0.0, 0.0};
+
+float xoe[]={0.0,0.0};
+float xoea[]={0.0,0.0};
+
+const float Aoe[2][2]={{ 0.276851, 0.882845},
+                      {-0.146933,      1.0}};
+
+const float Boe[2][2]={{0.882845, 0.722923},
+                      {       0, 0.146933}}; 
+
+float torque_estimateOD=0.0, u_OD=0.0;
+
+float Vfilt=0.0, Vfilt1=0.0;
 
 void timerCallback(){
   digitalWrite(STATUS_LED,HIGH);
@@ -216,12 +259,32 @@ void timerCallback(){
 
   ODriveFeedback feedback = odrive.getFeedback();
 
+  for(int n=0; n<=4; n++)
+  {
+    arr[n]=V[n];
+  }
+  
+  for (int i=0; i<4; i++){
+    for (int j=i+1;j<5;j++){
+      if(arr[j]<arr[i]){
+        float temporal=arr[i];
+        arr[i]=arr[j];
+        arr[j]=temporal;
+      }
+    }
+  }
+  Vprom=arr[2];
+
+  //Vprom=(V[0]+V[1]+V[2]+V[3])/4;
+
 if((millis()-timer)>=10)  // Main loop runs at 50Hz
   {
     sensorUpdate(counter, timer_old, timer, G_Dt);
   }
 
   e=roll;
+  //
+  
 
   //u=-(-K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));   
   //u= 0.2*sin(2*PI/0.4*trefsegundos);
@@ -239,8 +302,9 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
       break;
     }
     case U_CONTROL_STATE_FEEDBACK:{
-      u=-(-K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
-      //u=-(-K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(roll-e1)*100);
+      //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
+      //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
+      u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Vfilt));
       break;
     }
     case U_FOURIER:{
@@ -249,10 +313,10 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
     }
     case U_PRBS:{
       if (p_counter<1024){
-      u=0.18*PRBS[p_counter];
+      u=0.2*PRBS[p_counter];
       }
       else if (p_counter>=1024){
-        u=-0.18*PRBS[p_counter-1024];
+        u=-0.2*PRBS[p_counter-1024];
       }
       p_counter++;
       if (p_counter==2048){p_counter=0;}
@@ -270,58 +334,42 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
     }      
   }
 
- /* 
- if(trefsegundos>=0 && trefsegundos<onofftime){
-    uref=1.2; 
-    }
-    if(trefsegundos>=onofftime && trefsegundos<2*onofftime){
-    uref=0; 
-    }
-    if(trefsegundos>=2*onofftime && trefsegundos<3*onofftime){
-    uref=-1.2;
-    }
-    if(trefsegundos>=3*onofftime && trefsegundos<4*onofftime){
-    uref=-0; 
-    }
-    if(trefsegundos>=4*onofftime){
-    tref=0;
-    }
-    
-  u=uref;
-  */
-
-  //onoff control
-  /*
-  if(roll>ToRad(0.06)){u=1;}
-  else if(roll<ToRad(-0.06)){u=-1;}
-  else{u=0;}*/
-  
-
   if(!pasoxcero){//u definition MUST BE BEFORE this conditional
-    //if(sign(roll)!=sign(roll1))
-      // if(roll>ToRad(0.02))
-      // {pasoxcero=true;
-      // controlMode= U_FREQ;
-      // }
+    if(sign(roll)!=sign(roll1))
+      if(abs(roll)>ToRad(0.0002))
+      {pasoxcero=true;
+      //controlMode= U_FREQ;
+      }
     u=0;
     tref=0;
     //u=0.1;
   }
 
-  if(u>1.2){u=1.2;}if(u<-1.2){u=-1.2;}//limite para que no se desborde u
+  Vfilt= Vfilt1*0.8464817+Gyro_Vector[0]*0.1535183;
+
+  if(u>1.5){u=1.5;}if(u<-1.5){u=-1.5;}//limite para que no se desborde u
   odrive.setTorque(u);//u//u+uref
   //odrive.setTorque(roll*1.6/0.5235987756);
   
   //Serial.print(sign(pasoxcero));
   //Serial.print(", ");
- 
+  
+//OBSERVADOR
+  // xo[0]=Aobs[0][0]*xoa[0] + Aobs[0][1]*xoa[1] +Aobs[0][2]*xoa[2] + Aobs[0][3]*xoa[3]  +  Bobs[0][0]*torque_estimateOD + Bobs[0][1]*feedback.vel*2*PI + Bobs[0][2]*roll;
+  // xo[1]=Aobs[1][0]*xoa[0] + Aobs[1][1]*xoa[1] +Aobs[1][2]*xoa[2] + Aobs[1][3]*xoa[3]  +  Bobs[1][0]*torque_estimateOD + Bobs[1][1]*feedback.vel*2*PI + Bobs[1][2]*roll;
+  // xo[2]=Aobs[2][0]*xoa[0] + Aobs[2][1]*xoa[1] +Aobs[2][2]*xoa[2] + Aobs[2][3]*xoa[3]  +  Bobs[2][0]*torque_estimateOD + Bobs[2][1]*feedback.vel*2*PI + Bobs[2][2]*roll;
+  // xo[3]=Aobs[3][0]*xoa[0] + Aobs[3][1]*xoa[1] +Aobs[3][2]*xoa[2] + Aobs[3][3]*xoa[3]  +  Bobs[3][0]*torque_estimateOD + Bobs[3][1]*feedback.vel*2*PI + Bobs[3][2]*roll;
+
+  // xoe[0]=Aoe[0][0]*xoea[0]+Aoe[0][1]*xoea[1]+Boe[0][0]*u+Boe[0][1]*feedback.vel*2*PI;
+  // xoe[1]=Aoe[1][0]*xoea[0]+Aoe[1][1]*xoea[1]+Boe[1][0]*u+Boe[1][1]*feedback.vel*2*PI;
 
   if (odrive.getState() == AXIS_STATE_CLOSED_LOOP_CONTROL) {
   //   //Serial.print(feedback.pos);
   //   //Serial.print(", ");
     Serial.print(feedback.vel);
     Serial.print(", ");
-    Serial.print(odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint"));
+    torque_estimateOD=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
+    Serial.print(torque_estimateOD);
     Serial.print(", ");
     Serial.print(odrive.getParameterAsFloat("axis0.motor.torque_estimate"));
     Serial.print(", ");
@@ -330,10 +378,13 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
     Serial.print(0); Serial.print(", ");
     Serial.print(0); Serial.print(", ");
   }
+
+  //Serial.print(xo[0]/(2*PI));
   Serial.print(u);
   Serial.print(", ");
   printdata();
-  Serial.print(p_counter);
+  //Serial.print(V[0]);Serial.print(", ");Serial.print(V[1]);Serial.print(", ");Serial.print(V[2]);Serial.print(", ");Serial.print(V[3]);Serial.print(", ");Serial.print(V[4]);Serial.print(", ");
+  Serial.print(ToDeg(Vfilt));
   // Serial.print(Serial.availableForWrite());
   // //Serial.print(pasoxcero); Serial.print(", ");
   // Serial.println();
@@ -351,6 +402,19 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
     e1=e;
   }
   roll1=roll;
+  Vfilt1=Vfilt;
+  // V[4]=V[3];
+  // V[3]=V[2];
+  // V[2]=V[1];
+  // V[1]=V[0];
+  // V[0]=Gyro_Vector[0];
+  
+  // for (int n=0; n<2; n++){
+  //   xoea[n]=xoe[n];
+  //}
+
+  
+  
   digitalWrite(STATUS_LED,LOW);
 }
 
@@ -399,6 +463,9 @@ void loop() {
       roll_offset = ToRad(newOffsetDeg);
       u=0;
       resetSensor();
+      // for (int n=0; n<=4; n++){
+      //   xoe[n]=0;
+      // }
     }else if(input.startsWith("M=")) {
       input = input.substring(2);
       if(input=="OFF"){
@@ -419,7 +486,7 @@ void loop() {
         K[1] = input.substring(idx1 + 1, idx2).toFloat();
         K[2] = input.substring(idx2 + 1).toFloat();
         controlMode=U_CONTROL_STATE_FEEDBACK;
-        pasoxcero= true;
+        pasoxcero= false;
         //resetSensor();
       } else {
         Serial.println("Error en el formato de K. Usa: K=x,y,z");
@@ -437,6 +504,7 @@ void loop() {
         PERIODO = input.substring(idx1 + 1).toFloat();
         controlMode=U_FREQ;
         odrive.clearErrors();
+        xoe[0]=0; xoe[1]=0;
         odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
         //delay(10);
       }
