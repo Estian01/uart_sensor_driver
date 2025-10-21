@@ -96,6 +96,7 @@ bool is_this_ready= false;
 #define STATUS_LED 10
 #define onofftime 0.02//0.4
 
+#define T_LED 13
 //#define PI() 3.14159265358979323846264
 float G_Dt=0.01;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
@@ -160,6 +161,11 @@ float Temporary_Matrix[3][3]={
 float AMPLITUD=0.5, PERIODO=0.4;
 //
 IntervalTimer timeri;
+
+IntervalTimer TLyapunov;
+
+bool flip = false;
+
 const unsigned long interval = 10;  // Intervalo de muestreo en milisegundos <------ min T= 4
 const unsigned long intervaltimer = interval; 
 
@@ -245,6 +251,11 @@ const float Boe[2][2]={{0.882845, 0.722923},
 float torque_estimateOD=0.0, u_OD=0.0;
 
 float Vfilt=0.0, Vfilt1=0.0;
+
+void Iglesias(){
+   digitalWrite(T_LED,flip);
+   flip = !flip;
+}
 
 void timerCallback(){
   digitalWrite(STATUS_LED,HIGH);
@@ -448,6 +459,7 @@ void setup() {
 
   setupVars();
   //resetVars();
+  TLyapunov.begin(Iglesias,1000000);
 }
 
 void loop() {
@@ -475,6 +487,7 @@ void loop() {
       }else if(input=="ON"){
         odrive.clearErrors();
         odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+        Iglesias();
       }
     }else if (input.startsWith("K=")) {
       input = input.substring(2);

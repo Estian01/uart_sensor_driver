@@ -196,7 +196,8 @@ void setupVars(){
   delay(10);
   pinMode (STATUS_LED,OUTPUT);  // Status LED
   digitalWrite(STATUS_LED,LOW);
-  delay(1000); //por quitar
+  pinMode (T_LED,OUTPUT);  // Status LED
+  digitalWrite(T_LED,LOW);
   Accel_Init();
   Compass_Init();
   Gyro_Init();
