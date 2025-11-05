@@ -163,8 +163,13 @@ float AMPLITUD=0.5, PERIODO=0.4;
 IntervalTimer timeri;
 
 IntervalTimer TLyapunov;
+float vel_tope=0;
 
 bool flip = false;
+bool switch_torque_mode = false;//true;// 1 torque 0 velocidad
+
+const float torque_lim=1.5;
+const float vel_lim=30;
 
 const unsigned long interval = 10;  // Intervalo de muestreo en milisegundos <------ min T= 4
 const unsigned long intervaltimer = interval; 
@@ -335,7 +340,10 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
       break;
     }
     case U_LYAPUNOV:{
-      u=-((26*0.365*9.81*sin(roll)-0.00004695*Gyro_Vector[0]-300*abs((Gyro_Vector[0]+e)))/16.64);
+      u=0.01*sign(u-u1)*p_counter+u1;
+      p_counter++;
+      if (feedback.vel==vel_tope){p_counter=0;}
+      //Serial.println("PRBS");
       break;
     }
     default:{
@@ -358,9 +366,14 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
 
   Vfilt= Vfilt1*0.8464817+Gyro_Vector[0]*0.1535183;
 
-  if(u>1.5){u=1.5;}if(u<-1.5){u=-1.5;}//limite para que no se desborde u
-  odrive.setTorque(u);//u//u+uref
-  //odrive.setTorque(roll*1.6/0.5235987756);
+  if(switch_torque_mode){
+    if(u>torque_lim){u=torque_lim;}if(u<-torque_lim){u=-torque_lim;}//limite para que no se desborde u
+    odrive.setTorque(u);//u//u+uref
+  }else{
+    if(u>vel_lim){u=vel_lim;}if(u<-vel_lim){u=-vel_lim;}//limite para que no se desborde u
+    odrive.setVelocity(u);
+  }
+  
   
   //Serial.print(sign(pasoxcero));
   //Serial.print(", ");
@@ -374,18 +387,20 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
   // xoe[0]=Aoe[0][0]*xoea[0]+Aoe[0][1]*xoea[1]+Boe[0][0]*u+Boe[0][1]*feedback.vel*2*PI;
   // xoe[1]=Aoe[1][0]*xoea[0]+Aoe[1][1]*xoea[1]+Boe[1][0]*u+Boe[1][1]*feedback.vel*2*PI;
 
+  Serial.print(feedback.vel);
+  Serial.print(", ");
+
   if (odrive.getState() == AXIS_STATE_CLOSED_LOOP_CONTROL) {
   //   //Serial.print(feedback.pos);
   //   //Serial.print(", ");
-    Serial.print(feedback.vel);
-    Serial.print(", ");
+    
     torque_estimateOD=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
     Serial.print(torque_estimateOD);
     Serial.print(", ");
     Serial.print(odrive.getParameterAsFloat("axis0.motor.torque_estimate"));
     Serial.print(", ");
   }else {
-    Serial.print(0); Serial.print(", ");
+    //Serial.print(0); Serial.print(", ");
     Serial.print(0); Serial.print(", ");
     Serial.print(0); Serial.print(", ");
   }
@@ -396,6 +411,7 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
   printdata();
   //Serial.print(V[0]);Serial.print(", ");Serial.print(V[1]);Serial.print(", ");Serial.print(V[2]);Serial.print(", ");Serial.print(V[3]);Serial.print(", ");Serial.print(V[4]);Serial.print(", ");
   Serial.print(ToDeg(Vfilt));
+  //Serial.print()
   // Serial.print(Serial.availableForWrite());
   // //Serial.print(pasoxcero); Serial.print(", ");
   // Serial.println();
@@ -487,7 +503,6 @@ void loop() {
       }else if(input=="ON"){
         odrive.clearErrors();
         odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
-        Iglesias();
       }
     }else if (input.startsWith("K=")) {
       input = input.substring(2);
@@ -508,7 +523,7 @@ void loop() {
       input = input.substring(2);
       int idx1 = input.indexOf(',');
       if (idx1!=-1){
-        u=0;
+        //u=0;
         //delay(2500);
         //odrive.setState(AXIS_STATE_IDLE);
 
@@ -516,9 +531,9 @@ void loop() {
         AMPLITUD= input.substring(0, idx1).toFloat();
         PERIODO = input.substring(idx1 + 1).toFloat();
         controlMode=U_FREQ;
-        odrive.clearErrors();
-        xoe[0]=0; xoe[1]=0;
-        odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+        //odrive.clearErrors();
+        //xoe[0]=0; xoe[1]=0;
+        //odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
         //delay(10);
       }
     }else if(input.startsWith("P=")) {
@@ -564,8 +579,20 @@ void loop() {
         controlMode=U_PRBS;
       }
       else if(input.startsWith("L=")){
+        p_counter=0;
         controlMode=U_LYAPUNOV;
+        vel_tope= input.substring(2).toFloat();
       }
+      // else if(input.startsWith("VT")) {
+      //   u=0;
+      //   odrive.setState(AXIS_STATE_IDLE);
+      //   controlMode=U_OFF;
+
+      //   delay(500);
+      //   switch_torque_mode= !switch_torque_mode;//modo torque
+
+      //   odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
+      // }
   //*/
   }
 
