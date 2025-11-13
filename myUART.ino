@@ -187,6 +187,7 @@ int unsat_counter=0;
 int signu=0;
 
 bool pasoxcero= false; //Se activa cuando la bici pasa por cero para activar el control
+bool isthemotoron=false;
 
 //double K[]={-0.0006689369, -142.9209, -27.55614};
 double K[]={-0.0005566705, -118.4083, -18.84987};
@@ -322,8 +323,8 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
       break;
     }
     case U_CONTROL_STATE_FEEDBACK:{
-      u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
-      //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*xo[1]);
+      //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
+      u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*xo[1]);
       //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Vfilt));
       break;
     }
@@ -397,19 +398,21 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
 
   Serial.print(feedback.vel);
   Serial.print(", ");
+  Serial.print(xo[3]);
+  Serial.print(", ");
 
   if (odrive.getState() == AXIS_STATE_CLOSED_LOOP_CONTROL) {
   //   //Serial.print(feedback.pos);
   //   //Serial.print(", ");
     
     torque_estimateOD=odrive.getParameterAsFloat("axis0.controller.effective_torque_setpoint");
-    Serial.print(torque_estimateOD);
-    Serial.print(", ");
+    // Serial.print(torque_estimateOD);
+    // Serial.print(", ");
     Serial.print(odrive.getParameterAsFloat("axis0.motor.torque_estimate"));
     Serial.print(", ");
   }else {
     //Serial.print(0); Serial.print(", ");
-    Serial.print(0); Serial.print(", ");
+    //Serial.print(0); Serial.print(", ");
     Serial.print(0); Serial.print(", ");
   }
 
@@ -503,15 +506,15 @@ void loop() {
       //   xoe[n]=0;
       // }
     }else if(input.startsWith("M=")) {
-      input = input.substring(2);
-      if(input=="OFF"){
+      if(isthemotoron){
         u=0;
         odrive.setState(AXIS_STATE_IDLE);
         controlMode=U_OFF;
-      }else if(input=="ON"){
+      }else{
         odrive.clearErrors();
         odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
       }
+      isthemotoron=!isthemotoron;
     }else if (input.startsWith("K=")) {
       input = input.substring(2);
       int idx1 = input.indexOf(',');
@@ -545,14 +548,15 @@ void loop() {
         //delay(10);
       }
     }else if(input.startsWith("P=")) {
-      input = input.substring(2);
-      if(input=="OFF"){
+      if(pasoxcero){
         pasoxcero=false;
         odrive.setState(AXIS_STATE_IDLE);
-      }else if(input=="ON"){
+        isthemotoron=false;
+      }else{
         pasoxcero=true;
         tref=0;
       }
+    /////////////////////
     }else if(input.startsWith("F=")){
       input = input.substring(2);
       int idx[7];
