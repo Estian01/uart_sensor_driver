@@ -166,7 +166,7 @@ IntervalTimer TLyapunov;
 float vel_tope=0;
 
 bool flip = false;
-bool switch_torque_mode = false;//true;// 1 torque 0 velocidad
+bool switch_torque_mode = true;// 1 torque 0 velocidad
 
 const float torque_lim=1.5;
 const float vel_lim=30;
@@ -223,23 +223,27 @@ float V[]={0.0, 0.0, 0.0, 0.0, 0.0};
 float Vprom=0;
 //float Vsorted[]={0.0, 0.0, 0.0, 0.0, 0.0};
 
-// const double Aobs[4][4]={{0.8670111,  0.07967813,          0,      0.8828448},
-//                         {0.0004896462,   0.8802067, 0.01000429, -0.00001282624},
-//                         {0.003277661,  -0.3587544,   1.001286,   -0.002565702},
-//                         {-0.00491945, 0.005835461,          0,            1.0}};
-const double Aobs[4][4]={{   0.819147, 0.0202023,         0,      0.882845},
-                        {0.000205936,  0.835748, 0.0100043, -0.0000128262},
-                        {0.00200806, -0.665895,   1.00129,    -0.0025657},
-                        {-0.00905287, 0.0019772,         0,           1.0}};
+// const double Aobs[4][4]={{    0.8199617, -0.2479938, -0.02177908,      0.8354496},
+//                         {-0.0003640041,    1.00124, -0.02721174, -0.00001246759},
+//                         {-0.0007582793,  0.2481058,   0.8349798,   -0.002493657},
+//                         {  -0.00958802,          0, -0.01021598,            1.0}};
 
-// const double Bobs[4][3]={{     0.8828448,      0.132763,  -0.07967813},
-//                           {-0.00001282624, -0.0004896429,    0.1210796},
-//                           {-0.002565702,  -0.003277004,    0.6160752},
-//                           {             0,    0.00491945, -0.005835461}};
-const double Bobs[4][3]={{     0.882845,     0.180627, -0.0202023},
-                          {-0.0000128262, -0.000205932,   0.165538},
-                          {   -0.0025657,  -0.00200741,   0.923216},
-                          {            0,   0.00905287, -0.0019772}};
+const double Aobs[4][4]={{     0.3701959, 0.000004326545,  0.003356073,      0.8354496},
+                        {0.000004478455,        0.67032, -4.809751e-8, -0.00001246759},
+                        {   0.001160211,    -1.48681e-8,    0.7557733,   -0.002493657},
+                        {    -0.1166772, 0.000001684042,  0.001175949,            1.0}};
+                        
+ 
+
+// const double Bobs[4][3]={{     0.8354496,    0.1791327, 0.02053918},
+//                           {-0.00001246759, 0.0003640176, 0.03721587},
+//                           {  -0.002493657, 0.0007609824,  0.1662605},
+//                           {             0,   0.00958802, 0.01021598}};
+
+const double Bobs[4][4]={{     0.8354496,      0.6288984,      -0.2479982, -0.004595973},
+                          {-0.00001246759, -0.00000446494,       0.3309202,   0.01000418},
+                          {  -0.002493657,   -0.001157508,       0.2481059,     0.245467},
+                          {             0,      0.1166772, -0.000001684042, -0.001175949}};
 
 float xo[]={0.0, 0.0, 0.0, 0.0};
 float xoa[]={0.0, 0.0, 0.0, 0.0};
@@ -318,9 +322,9 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
       break;
     }
     case U_CONTROL_STATE_FEEDBACK:{
-      //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
-      //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
-      u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Vfilt));
+      u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
+      //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*xo[1]);
+      //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Vfilt));
       break;
     }
     case U_FOURIER:{
@@ -364,7 +368,8 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
     //u=0.1;
   }
 
-  Vfilt= Vfilt1*0.8464817+Gyro_Vector[0]*0.1535183;
+ // Vfilt= Vfilt1*0.8464817+Gyro_Vector[0]*0.1535183; Original
+  Vfilt= Vfilt1*0.7777778+Gyro_Vector[0]*0.1111111;
 
   if(switch_torque_mode){
     if(u>torque_lim){u=torque_lim;}if(u<-torque_lim){u=-torque_lim;}//limite para que no se desborde u
@@ -384,8 +389,11 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
   // xo[2]=Aobs[2][0]*xoa[0] + Aobs[2][1]*xoa[1] +Aobs[2][2]*xoa[2] + Aobs[2][3]*xoa[3]  +  Bobs[2][0]*torque_estimateOD + Bobs[2][1]*feedback.vel*2*PI + Bobs[2][2]*roll;
   // xo[3]=Aobs[3][0]*xoa[0] + Aobs[3][1]*xoa[1] +Aobs[3][2]*xoa[2] + Aobs[3][3]*xoa[3]  +  Bobs[3][0]*torque_estimateOD + Bobs[3][1]*feedback.vel*2*PI + Bobs[3][2]*roll;
 
-  // xoe[0]=Aoe[0][0]*xoea[0]+Aoe[0][1]*xoea[1]+Boe[0][0]*u+Boe[0][1]*feedback.vel*2*PI;
-  // xoe[1]=Aoe[1][0]*xoea[0]+Aoe[1][1]*xoea[1]+Boe[1][0]*u+Boe[1][1]*feedback.vel*2*PI;
+  xo[0]=Aobs[0][0]*xoa[0] + Aobs[0][1]*xoa[1] +Aobs[0][2]*xoa[2] + Aobs[0][3]*xoa[3]  +  Bobs[0][0]*torque_estimateOD + Bobs[0][1]*feedback.vel*2*PI + Bobs[0][2]*Gyro_Vector[0]+Bobs[0][3]*roll;
+  xo[1]=Aobs[1][0]*xoa[0] + Aobs[1][1]*xoa[1] +Aobs[1][2]*xoa[2] + Aobs[1][3]*xoa[3]  +  Bobs[1][0]*torque_estimateOD + Bobs[1][1]*feedback.vel*2*PI + Bobs[1][2]*Gyro_Vector[0]+Bobs[1][3]*roll;
+  xo[2]=Aobs[2][0]*xoa[0] + Aobs[2][1]*xoa[1] +Aobs[2][2]*xoa[2] + Aobs[2][3]*xoa[3]  +  Bobs[2][0]*torque_estimateOD + Bobs[2][1]*feedback.vel*2*PI + Bobs[2][2]*Gyro_Vector[0]+Bobs[2][3]*roll;
+  xo[3]=Aobs[3][0]*xoa[0] + Aobs[3][1]*xoa[1] +Aobs[3][2]*xoa[2] + Aobs[3][3]*xoa[3]  +  Bobs[3][0]*torque_estimateOD + Bobs[3][1]*feedback.vel*2*PI + Bobs[3][2]*Gyro_Vector[0]+Bobs[3][3]*roll;
+
 
   Serial.print(feedback.vel);
   Serial.print(", ");
@@ -410,7 +418,7 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
   Serial.print(", ");
   printdata();
   //Serial.print(V[0]);Serial.print(", ");Serial.print(V[1]);Serial.print(", ");Serial.print(V[2]);Serial.print(", ");Serial.print(V[3]);Serial.print(", ");Serial.print(V[4]);Serial.print(", ");
-  Serial.print(ToDeg(Vfilt));
+  Serial.print(ToDeg(xo[1]));
   //Serial.print()
   // Serial.print(Serial.availableForWrite());
   // //Serial.print(pasoxcero); Serial.print(", ");
@@ -436,9 +444,9 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
   // V[1]=V[0];
   // V[0]=Gyro_Vector[0];
   
-  // for (int n=0; n<2; n++){
-  //   xoea[n]=xoe[n];
-  //}
+  for (int n=0; n<4; n++){
+    xoa[n]=xo[n];
+  }
 
   
   
