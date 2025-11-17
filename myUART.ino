@@ -162,7 +162,7 @@ float AMPLITUD=0.5, PERIODO=0.4;
 //
 IntervalTimer timeri;
 
-IntervalTimer TLyapunov;
+IntervalTimer TLed;
 float vel_tope=0;
 
 bool flip = false;
@@ -323,8 +323,7 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
       break;
     }
     case U_CONTROL_STATE_FEEDBACK:{
-      //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
-      u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*xo[1]);
+      u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Gyro_Vector[0]));
       //u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*(Vfilt));
       break;
     }
@@ -344,11 +343,8 @@ if((millis()-timer)>=10)  // Main loop runs at 50Hz
       //Serial.println("PRBS");
       break;
     }
-    case U_LYAPUNOV:{
-      u=0.01*sign(u-u1)*p_counter+u1;
-      p_counter++;
-      if (feedback.vel==vel_tope){p_counter=0;}
-      //Serial.println("PRBS");
+    case U_OBS:{
+      u=-(K[0]*feedback.vel*2*PI +K[1]*roll+K[2]*xo[1]);
       break;
     }
     default:{
@@ -486,7 +482,7 @@ void setup() {
 
   setupVars();
   //resetVars();
-  TLyapunov.begin(Iglesias,1000000);
+  TLed.begin(Iglesias,1000000);
 }
 
 void loop() {
@@ -510,6 +506,7 @@ void loop() {
         u=0;
         odrive.setState(AXIS_STATE_IDLE);
         controlMode=U_OFF;
+        pasoxcero=false;
       }else{
         odrive.clearErrors();
         odrive.setState(AXIS_STATE_CLOSED_LOOP_CONTROL);
@@ -592,7 +589,7 @@ void loop() {
       }
       else if(input.startsWith("L=")){
         p_counter=0;
-        controlMode=U_LYAPUNOV;
+        controlMode=U_OBS;
         vel_tope= input.substring(2).toFloat();
       }
       // else if(input.startsWith("VT")) {
