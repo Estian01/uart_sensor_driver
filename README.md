@@ -9,7 +9,7 @@ Project focused on hardware integration and development of an embedded controlle
 - Microcontroller: Teensy 4.1 (ARM Cortex)
 - Sensor: Inertial measurement Unit MinIMU-9 v5 communicated with uC via I2C. Integration from the [library provided](https://github.com/pololu/minimu-9-ahrs-arduino)
 - Actuator: M8325S driven by [OdriveS1](https://docs.odriverobotics.com/v/latest/hardware/s1-datasheet.html). Communication with uC via UART
-- Custon steel reaction wheel
+- Custom steel reaction wheel
 - Commercial electric bycicle as mechanical platform
 
 ## Features
